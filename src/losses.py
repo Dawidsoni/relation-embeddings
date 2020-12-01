@@ -1,15 +1,21 @@
 from enum import Enum
 import tensorflow as tf
+import gin.tf
 
 
+@gin.constants_from_enum
 class OptimizedMetric(Enum):
     NORM = 1
     SOFTPLUS = 2
 
 
+@gin.configurable
 class LossObject(object):
 
-    def __init__(self, optimized_metric, norm_metric_order=None, norm_metric_margin=None):
+    def __init__(
+        self, optimized_metric: OptimizedMetric = gin.REQUIRED, norm_metric_order: int = None,
+        norm_metric_margin: float = None
+    ):
         self.optimized_metric = optimized_metric
         self.norm_metric_order = norm_metric_order
         self.norm_metric_margin = norm_metric_margin
@@ -18,7 +24,7 @@ class LossObject(object):
     def _get_softplus_losses_of_samples(samples):
         if samples.shape[1] != 1:
             raise ValueError('Softplus metric is incompatible with embeddings of shape greater than 1')
-        return tf.math.softplus(samples)
+        return tf.reshape(tf.math.softplus(samples), shape=(-1,))
 
     @staticmethod
     def _get_softplus_mean_loss_of_pairs(positive_samples, negative_samples):
@@ -28,16 +34,14 @@ class LossObject(object):
 
     def _get_norm_losses_of_samples(self, samples):
         if self.norm_metric_order is None:
-            raise ValueError('Norm metric requires to define norm_metric_order')
+            raise ValueError('The property norm_metric_order has to be defined when norm metric is used')
         return tf.norm(samples, axis=1, ord=self.norm_metric_order)
 
     def _get_norm_mean_loss_of_pairs(self, positive_samples, negative_samples):
-        if self.norm_metric_order is None:
-            raise ValueError('Norm metric requires to define norm_metric_order')
         if self.norm_metric_margin is None:
-            raise ValueError('Norm metric requires to define norm_metric_margin')
-        positive_distances = tf.norm(positive_samples, axis=1, ord=self.norm_metric_order)
-        negative_distances = tf.norm(negative_samples, axis=1, ord=self.norm_metric_order)
+            raise ValueError('The property norm_metric_margin has to be defined when norm metric is used')
+        positive_distances = self._get_norm_losses_of_samples(positive_samples)
+        negative_distances = self._get_norm_losses_of_samples(negative_samples)
         return tf.reduce_mean(tf.nn.relu(positive_distances - negative_distances + self.norm_metric_margin))
 
     def get_losses_of_positive_samples(self, samples):

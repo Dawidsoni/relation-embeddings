@@ -14,6 +14,7 @@ class TestConvKBModel(tf.test.TestCase):
         model(self.model_inputs)
         model.conv_layers[0].kernel.assign(self.default_kernel)
         model.conv_layers[0].bias.assign(self.default_bias)
+        gin.clear_config()
 
     def setUp(self):
         self.default_data_config = DataConfig(entities_count=3, relations_count=2)

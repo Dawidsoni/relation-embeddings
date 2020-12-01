@@ -18,8 +18,8 @@ class ConvolutionsConfig:
 class ConvKBModel(ConvBaseModel):
 
     def __init__(
-            self, data_config: DataConfig, model_config: ModelConfig = gin.REQUIRED,
-            convolutions_config: ConvolutionsConfig = gin.REQUIRED
+        self, data_config: DataConfig, model_config: ModelConfig = gin.REQUIRED,
+        convolutions_config: ConvolutionsConfig = gin.REQUIRED
     ):
         super(ConvKBModel, self).__init__(data_config, model_config)
         filters_count_per_height = convolutions_config.filters_count_per_height

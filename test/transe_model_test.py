@@ -12,6 +12,7 @@ class TestTranseModel(tf.test.TestCase):
         self.entity_embeddings = np.array([[0., 0., 0., 0.], [1., 1., 2., 1.], [2., 2., 2., 2.]], dtype=np.float32)
         self.relation_embeddings = np.array([[3., 3., 3., 3.], [4., 3., 4., 4.]], dtype=np.float32)
         self.model_inputs = np.array([[0, 0, 1], [1, 1, 2]])
+        gin.clear_config()
 
     def test_outputs(self):
         data_config = DataConfig(entities_count=3, relations_count=2)
