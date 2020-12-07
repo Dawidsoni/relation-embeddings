@@ -13,10 +13,11 @@ class OptimizedMetric(Enum):
 class LossObject(object):
 
     def __init__(
-        self, optimized_metric: OptimizedMetric = gin.REQUIRED, norm_metric_order: int = None,
-        norm_metric_margin: float = None
+        self, optimized_metric: OptimizedMetric = gin.REQUIRED, regularization_strength: float = gin.REQUIRED,
+        norm_metric_order: int = None, norm_metric_margin: float = None
     ):
         self.optimized_metric = optimized_metric
+        self.regularization_strength = regularization_strength
         self.norm_metric_order = norm_metric_order
         self.norm_metric_margin = norm_metric_margin
 
@@ -59,3 +60,8 @@ class LossObject(object):
             return self._get_softplus_mean_loss_of_pairs(positive_samples, negative_samples)
         else:
             raise ValueError(f'Invalid optimized_metric: {self.optimized_metric}')
+
+    def get_regularization_loss(self, model):
+        list_of_weights = [weights for weights in model.trainable_variables if len(weights.shape) > 1]
+        losses = [tf.reshape(tf.norm(weights, axis=-1), (-1,)) for weights in list_of_weights]
+        return self.regularization_strength * tf.reduce_mean(tf.concat(losses, axis=0))
