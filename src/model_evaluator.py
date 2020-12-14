@@ -30,10 +30,10 @@ class ModelEvaluator(object):
             tail_edges = self.edges_producer.produce_tail_edges(edge_sample, target_pattern_index=0)
             tail_losses = self.model(tail_edges)
             tail_metrics.update_state(tail_losses, positive_sample_index=0)
-        self._report_computed_evaluation_metrics(head_metrics, step, metrics_prefix="metrics/head")
-        self._report_computed_evaluation_metrics(tail_metrics, step, metrics_prefix="metrics/tail")
+        self._report_computed_evaluation_metrics(head_metrics, step, metrics_prefix="metrics_head")
+        self._report_computed_evaluation_metrics(tail_metrics, step, metrics_prefix="metrics_tail")
         average_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
-        self._report_computed_evaluation_metrics(average_evaluation_metrics, step, metrics_prefix="metrics/averaged")
+        self._report_computed_evaluation_metrics(average_evaluation_metrics, step, metrics_prefix="metrics_averaged")
 
     def _compute_and_report_losses(self, positive_samples, negative_samples, step):
         positive_outputs = self.model(positive_samples)
