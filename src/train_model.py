@@ -16,11 +16,9 @@ from convkb_model import ConvKBModel
 
 
 DEFAULT_LOGGER_NAME = "default_logger"
-LOGS_LOCATION = "../logs/"
 TRAINING_DATASET_FILENAME = "train.txt"
 VALIDATION_DATASET_FILENAME = "valid.txt"
 TEST_DATASET_FILENAME = "test.txt"
-TENSORBOARD_OUTPUTS_FOLDER = "tensorboard"
 
 
 @gin.configurable
@@ -28,6 +26,8 @@ TENSORBOARD_OUTPUTS_FOLDER = "tensorboard"
 class ExperimentConfig:
     experiment_name: str = gin.REQUIRED
     epochs: int = gin.REQUIRED
+    tensorboard_outputs_folder: str = gin.REQUIRED
+    logs_output_folder: str = gin.REQUIRED
 
 
 @gin.constants_from_enum
@@ -43,11 +43,12 @@ def parse_training_args():
     return parser.parse_args()
 
 
-def init_and_get_logger(experiment_name):
+def init_and_get_logger(experiment_config):
     logger = logging.getLogger(DEFAULT_LOGGER_NAME)
-    if not os.path.exists(LOGS_LOCATION):
-        os.makedirs(LOGS_LOCATION)
-    file_handler = logging.FileHandler(os.path.join(LOGS_LOCATION, f"{experiment_name}.log"), mode='w')
+    logs_location, experiment_name = experiment_config.logs_output_folder, experiment_config.experiment_name
+    if not os.path.exists(logs_location):
+        os.makedirs(logs_location)
+    file_handler = logging.FileHandler(os.path.join(logs_location, f"{experiment_name}.log"), mode='w')
     formatter = logging.Formatter(fmt="%(asctime)s: %(message)s")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -101,38 +102,39 @@ def get_existing_graph_edges():
     return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
 
 
-def create_training_evaluator(experiment_name, model, loss_object, existing_graph_edges):
+def create_training_evaluator(experiment_config, model, loss_object, existing_graph_edges):
     unbatched_training_dataset = Dataset(
         graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
-    output_directory = f"../{TENSORBOARD_OUTPUTS_FOLDER}/{experiment_name}/train"
+    outputs_folder, experiment_name = experiment_config.tensorboard_outputs_folder, experiment_config.experiment_name
+    output_directory = f"../{outputs_folder}/{experiment_name}/train"
     return ModelEvaluator(model, loss_object, unbatched_training_dataset, existing_graph_edges, output_directory)
 
 
-def create_validation_evaluator(experiment_name, model, loss_object, existing_graph_edges):
+def create_validation_evaluator(experiment_config, model, loss_object, existing_graph_edges):
     unbatched_validation_dataset = Dataset(
         graph_edges_filename=VALIDATION_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
-    output_directory = f"../{TENSORBOARD_OUTPUTS_FOLDER}/{experiment_name}/validation"
+    outputs_folder, experiment_name = experiment_config.tensorboard_outputs_folder, experiment_config.experiment_name
+    output_directory = f"../{outputs_folder}/{experiment_name}/validation"
     return ModelEvaluator(model, loss_object, unbatched_validation_dataset, existing_graph_edges, output_directory)
 
 
 def train_model(gin_configs, gin_bindings):
     gin.parse_config_files_and_bindings(gin_configs, gin_bindings)
     experiment_config = ExperimentConfig()
-    experiment_name, epochs = experiment_config.experiment_name, experiment_config.epochs
-    logger = init_and_get_logger(experiment_name)
-    log_experiment_information(logger, experiment_name, gin_configs, gin_bindings)
+    logger = init_and_get_logger(experiment_config)
+    log_experiment_information(logger, experiment_config.experiment_name, gin_configs, gin_bindings)
     batched_training_dataset = Dataset(graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=gin.REQUIRED)
     model = create_model(batched_training_dataset)
     loss_object = LossObject()
     learning_rate_schedule = create_learning_rate_schedule()
     trainer = ModelTrainer(model, loss_object, learning_rate_schedule)
     existing_graph_edges = get_existing_graph_edges()
-    training_evaluator = create_training_evaluator(experiment_name, model, loss_object, existing_graph_edges)
-    validation_evaluator = create_validation_evaluator(experiment_name, model, loss_object, existing_graph_edges)
+    training_evaluator = create_training_evaluator(experiment_config, model, loss_object, existing_graph_edges)
+    validation_evaluator = create_validation_evaluator(experiment_config, model, loss_object, existing_graph_edges)
     training_step = 0
-    for epoch in range(epochs):
+    for epoch in range(experiment_config.epochs):
         logger.info(f"Training a model (epoch {epoch})")
         for positive_inputs, negative_inputs in batched_training_dataset.pairs_of_samples:
             trainer.train_step(positive_inputs, negative_inputs)
