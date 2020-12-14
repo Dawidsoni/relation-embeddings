@@ -4,7 +4,7 @@ import gin.tf
 from conv_base_model import ConvBaseModel, DataConfig, ModelConfig
 
 
-@gin.configurable(blacklist=['data_config'])
+@gin.configurable(denylist=['data_config'])
 class TranseModel(ConvBaseModel):
 
     def __init__(self, data_config: DataConfig, model_config: ModelConfig = gin.REQUIRED):

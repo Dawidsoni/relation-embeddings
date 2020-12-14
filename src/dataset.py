@@ -1,14 +1,18 @@
 import os
 import numpy as np
 import tensorflow as tf
+import gin.tf
 import pandas as pd
 
 
+@gin.configurable
 class Dataset(object):
     ENTITIES_IDS_FILENAME = 'entity2id.txt'
     RELATIONS_IDS_FILENAME = 'relation2id.txt'
 
-    def __init__(self, data_directory, graph_edges_filename, batch_size=None, repeat_samples=False):
+    def __init__(
+        self, graph_edges_filename=gin.REQUIRED, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False
+    ):
         self._load_data(data_directory, graph_edges_filename)
         self.positive_samples = self._get_positive_samples_dataset(batch_size, repeat_samples)
         self.negative_samples = self._get_negative_samples_dataset(batch_size, repeat_samples)
@@ -24,6 +28,7 @@ class Dataset(object):
             os.path.join(data_directory, self.RELATIONS_IDS_FILENAME), header=None
         )
         self.relation_ids = dict(zip(relations_df[0], relations_df[1]))
+        self.ids_of_relations = list(self.relation_ids.values())
         graph_df = pd.read_table(
             os.path.join(data_directory, graph_edges_filename), header=None
         )

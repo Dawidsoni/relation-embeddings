@@ -17,5 +17,3 @@ class ModelTrainer(object):
         gradients = gradient_tape.gradient(loss_value, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
-    def test_regularization_loss(self):
-        self.assertEqual(0.28, self.model_trainer.get_regularization_loss())

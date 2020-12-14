@@ -28,7 +28,8 @@ class TestModelTrainer(tf.test.TestCase):
         )
         transe_model = TranseModel(data_config, model_config)
         model_trainer = ModelTrainer(transe_model, loss_object, learning_rate_schedule)
-        dataset = Dataset(self.DATASET_PATH, graph_edges_filename='graph_edges.txt', batch_size=2, repeat_samples=True)
+        dataset = Dataset(graph_edges_filename='graph_edges.txt', data_directory=self.DATASET_PATH, batch_size=2,
+                          repeat_samples=True)
         pairs_of_samples_iterator = iter(dataset.pairs_of_samples)
         positive_inputs1, negative_inputs1 = next(pairs_of_samples_iterator)
         positive_inputs2, negative_inputs2 = next(pairs_of_samples_iterator)
