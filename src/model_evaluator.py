@@ -28,7 +28,7 @@ class ModelEvaluator(object):
             head_losses = self.loss_object.get_losses_of_positive_samples(self.model(head_edges))
             head_metrics.update_state(head_losses, positive_sample_index=0)
             tail_edges = self.edges_producer.produce_tail_edges(edge_sample, target_pattern_index=0)
-            tail_losses = self.model(tail_edges)
+            tail_losses = self.loss_object.get_losses_of_positive_samples(self.model(tail_edges))
             tail_metrics.update_state(tail_losses, positive_sample_index=0)
         self._report_computed_evaluation_metrics(head_metrics, step, metrics_prefix="metrics_head")
         self._report_computed_evaluation_metrics(tail_metrics, step, metrics_prefix="metrics_tail")
