@@ -136,14 +136,15 @@ def train_model(gin_configs, gin_bindings):
     validation_evaluator = create_validation_evaluator(tensorboard_folder, model, loss_object, existing_graph_edges)
     training_step = 0
     for epoch in range(experiment_config.epochs):
-        logger.info(f"Training a model (epoch {epoch})")
+        logger.info(f"Starting epoch {epoch})")
         for positive_inputs, negative_inputs in batched_training_dataset.pairs_of_samples:
+            logger.info(f"Performing training step {training_step})")
             trainer.train_step(positive_inputs, negative_inputs)
             training_step += 1
             if training_step % experiment_config.steps_per_evaluation == 0:
-                logger.info(f"Evaluating a model on training data (epoch {epoch})")
+                logger.info(f"Evaluating a model on training data")
                 training_evaluator.evaluation_step(training_step)
-                logger.info(f"Evaluating a model on validation data (epoch {epoch})")
+                logger.info(f"Evaluating a model on validation data")
                 validation_evaluator.evaluation_step(training_step)
 
 
