@@ -107,7 +107,7 @@ def create_training_evaluator(experiment_config, model, loss_object, existing_gr
         graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
     outputs_folder, experiment_name = experiment_config.tensorboard_outputs_folder, experiment_config.experiment_name
-    output_directory = f"../{outputs_folder}/{experiment_name}/train"
+    output_directory = os.path.join(outputs_folder, experiment_name, "train")
     return ModelEvaluator(model, loss_object, unbatched_training_dataset, existing_graph_edges, output_directory)
 
 
@@ -116,7 +116,7 @@ def create_validation_evaluator(experiment_config, model, loss_object, existing_
         graph_edges_filename=VALIDATION_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
     outputs_folder, experiment_name = experiment_config.tensorboard_outputs_folder, experiment_config.experiment_name
-    output_directory = f"../{outputs_folder}/{experiment_name}/validation"
+    output_directory = os.path.join(outputs_folder, experiment_name, "validation")
     return ModelEvaluator(model, loss_object, unbatched_validation_dataset, existing_graph_edges, output_directory)
 
 
