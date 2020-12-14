@@ -14,7 +14,7 @@ class ConvolutionsConfig:
     activation: Union[str, tf.keras.layers.Activation]
 
 
-@gin.configurable(denylist=['data_config'])
+@gin.configurable(blacklist=['data_config'])
 class ConvKBModel(ConvBaseModel):
 
     def __init__(
