@@ -138,7 +138,7 @@ def train_model(gin_configs, gin_bindings):
     for epoch in range(experiment_config.epochs):
         logger.info(f"Starting epoch {epoch})")
         for positive_inputs, negative_inputs in batched_training_dataset.pairs_of_samples:
-            logger.info(f"Performing training step {training_step})")
+            logger.info(f"Performing training step {training_step}")
             trainer.train_step(positive_inputs, negative_inputs)
             training_step += 1
             if training_step % experiment_config.steps_per_evaluation == 0:
