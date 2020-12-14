@@ -141,9 +141,9 @@ def train_model(gin_configs, gin_bindings):
             trainer.train_step(positive_inputs, negative_inputs)
             training_step += 1
             if training_step % experiment_config.steps_per_evaluation == 0:
-                logger.info(f"Evaluating a on training data (epoch {epoch})")
+                logger.info(f"Evaluating a model on training data (epoch {epoch})")
                 training_evaluator.evaluation_step(training_step)
-                logger.info(f"Evaluating a on validation data (epoch {epoch})")
+                logger.info(f"Evaluating a model on validation data (epoch {epoch})")
                 validation_evaluator.evaluation_step(training_step)
 
 
