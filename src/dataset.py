@@ -50,14 +50,16 @@ class Dataset(object):
         return self._get_processed_dataset(raw_dataset, batch_size, repeat_samples)
 
     def _generate_negative_samples(self):
+        import time
         for entity_head, relation, entity_tail in self.graph_edges:
+            t = time.time()
             swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
             while (swapped_entity_head, relation, swapped_entity_tail) in self.set_of_graph_edges:
                 swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
                 if np.random.choice([False, True]):
-                    swapped_entity_head = np.random.choice(self.ids_of_entities)
+                    swapped_entity_head = self.ids_of_entities[np.random.randint(len(self.ids_of_entities))]
                 else:
-                    swapped_entity_tail = np.random.choice(self.ids_of_entities)
+                    swapped_entity_tail = self.ids_of_entities[np.random.randint(len(self.ids_of_entities))]
             yield np.array([swapped_entity_head, relation, swapped_entity_tail], dtype=np.int32)
 
     def _get_negative_samples_dataset(self, batch_size=None, repeat_samples=False):
