@@ -4,6 +4,7 @@ import gin.tf
 import numpy as np
 from dataclasses import dataclass
 from typing import Optional
+import os
 
 
 @dataclass
@@ -57,19 +58,20 @@ class ConvBaseModel(tf.keras.Model):
     def conv_layers(self):
         pass
 
-    def _rate_triples(self, image_of_embeddings):
+    def _rate_triples(self, image_of_embeddings, training=None):
         conv_outputs = []
         for conv_layer in self.conv_layers:
             expanded_conv_output = conv_layer(image_of_embeddings)
             flat_conv_output = tf.reshape(expanded_conv_output, (tf.shape(expanded_conv_output)[0], -1))
             conv_outputs.append(flat_conv_output)
         concat_output = tf.concat(conv_outputs, axis=1)
-        dropout_output = self.dropout_layer(concat_output)
+        dropout_output = self.dropout_layer(concat_output, training=training)
         if self.reduce_layer is None:
             return dropout_output
         return self.reduce_layer(dropout_output)
 
-    def call(self, inputs):
+    @tf.function(input_signature=[tf.TensorSpec([None, 3], tf.int32)])
+    def call(self, inputs, training=None, **kwargs):
         head_entity_ids, relation_ids, tail_entity_ids = tf.unstack(inputs, axis=1)
         head_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, head_entity_ids), axis=2)
         relation_embeddings = tf.expand_dims(tf.gather(self.relation_embeddings, relation_ids), axis=2)
@@ -80,4 +82,11 @@ class ConvBaseModel(tf.keras.Model):
             tail_entity_embeddings = tf.math.l2_normalize(tail_entity_embeddings, axis=1)
         concat_embeddings = tf.concat([head_entity_embeddings, relation_embeddings, tail_entity_embeddings], axis=2)
         image_of_embeddings = tf.expand_dims(concat_embeddings, axis=3)
-        return self._rate_triples(image_of_embeddings)
+        return self._rate_triples(image_of_embeddings, training)
+
+    def save_with_embeddings(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        tf.saved_model.save(self, export_dir=os.path.join(path, "saved_model"))
+        np.save(file=os.path.join(path, "entity_embeddings.npk"), arr=self.entity_embeddings.numpy())
+        np.save(file=os.path.join(path, "relation_embeddings.npk"), arr=self.relation_embeddings.numpy())

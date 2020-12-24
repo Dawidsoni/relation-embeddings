@@ -45,21 +45,31 @@ class Dataset(object):
         dataset = dataset.repeat() if repeat_samples else dataset
         return dataset.prefetch(100)
 
+    @staticmethod
+    def _get_integer_random_variables_iterator(low, high, batch_size):
+        while True:
+            for random_variable in np.random.randint(low, high, size=batch_size):
+                yield random_variable
+
     def _get_positive_samples_dataset(self, batch_size=None, repeat_samples=False):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
         return self._get_processed_dataset(raw_dataset, batch_size, repeat_samples)
 
     def _generate_negative_samples(self):
-        import time
+        random_binary_variable_iterator = self._get_integer_random_variables_iterator(
+            low=0, high=2, batch_size=100_000
+        )
+        random_entity_index_iterator = self._get_integer_random_variables_iterator(
+            low=0, high=len(self.ids_of_entities), batch_size=100_000
+        )
         for entity_head, relation, entity_tail in self.graph_edges:
-            t = time.time()
             swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
             while (swapped_entity_head, relation, swapped_entity_tail) in self.set_of_graph_edges:
                 swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
-                if np.random.choice([False, True]):
-                    swapped_entity_head = self.ids_of_entities[np.random.randint(len(self.ids_of_entities))]
+                if next(random_binary_variable_iterator):
+                    swapped_entity_head = self.ids_of_entities[next(random_entity_index_iterator)]
                 else:
-                    swapped_entity_tail = self.ids_of_entities[np.random.randint(len(self.ids_of_entities))]
+                    swapped_entity_tail = self.ids_of_entities[next(random_entity_index_iterator)]
             yield np.array([swapped_entity_head, relation, swapped_entity_tail], dtype=np.int32)
 
     def _get_negative_samples_dataset(self, batch_size=None, repeat_samples=False):

@@ -57,6 +57,7 @@ create_learning_rate_schedule.decay_rate = 1.0
 
 ExperimentConfig.experiment_name = "test_experiment"
 ExperimentConfig.epochs = 100
-ExperimentConfig.steps_per_evaluation = 10
+ExperimentConfig.steps_per_evaluation = 50
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
+ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
