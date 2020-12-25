@@ -1,15 +1,15 @@
 # Dataset
 
-Dataset.data_directory = "../data/WN18RR"
-Dataset.batch_size = 64
+Dataset.data_directory = "../data/FB15k-237"
+Dataset.batch_size = 10_000
 
 
 # LossObject
 
 LossObject.optimized_metric = %OptimizedMetric.NORM
 LossObject.regularization_strength = 0.0
-LossObject.norm_metric_order = 2
-LossObject.norm_metric_margin = 4.0
+LossObject.norm_metric_order = 1
+LossObject.norm_metric_margin = 1.0
 
 
 # TransE model
@@ -21,22 +21,6 @@ transe/ModelConfig.normalize_embeddings = True
 transe/ModelConfig.dropout_rate = 0.0
 
 TranseModel.model_config = @transe/ModelConfig()
-
-
-# ConvKB Model
-
-convkb/ModelConfig.embeddings_dimension = 4
-convkb/ModelConfig.trainable_embeddings = True
-convkb/ModelConfig.include_reduce_dim_layer = False
-convkb/ModelConfig.normalize_embeddings = False
-convkb/ModelConfig.dropout_rate = 0.0
-
-convkb/ConvolutionsConfig.filter_heights = [1]
-convkb/ConvolutionsConfig.filters_count_per_height = 1
-convkb/ConvolutionsConfig.activation = "relu"
-
-ConvKBModel.model_config = @convkb/ModelConfig()
-ConvKBModel.convolutions_config = @convkb/ConvolutionsConfig()
 
 
 # Creating a model
@@ -55,7 +39,7 @@ create_learning_rate_schedule.decay_rate = 1.0
 
 # Training model
 
-ExperimentConfig.experiment_name = "test_experiment"
+ExperimentConfig.experiment_name = "transe_fb15k_baseline"
 ExperimentConfig.training_steps = 5800
 ExperimentConfig.steps_per_evaluation = 50
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"

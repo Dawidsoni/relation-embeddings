@@ -70,7 +70,6 @@ class ConvBaseModel(tf.keras.Model):
             return dropout_output
         return self.reduce_layer(dropout_output)
 
-    @tf.function(input_signature=[tf.TensorSpec([None, 3], tf.int32)])
     def call(self, inputs, training=None, **kwargs):
         head_entity_ids, relation_ids, tail_entity_ids = tf.unstack(inputs, axis=1)
         head_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, head_entity_ids), axis=2)
@@ -87,6 +86,6 @@ class ConvBaseModel(tf.keras.Model):
     def save_with_embeddings(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
-        tf.saved_model.save(self, export_dir=os.path.join(path, "saved_model"))
+        self.save_weights(filepath=os.path.join(path, "saved_weights.tf"), save_format="tf")
         np.save(file=os.path.join(path, "entity_embeddings.npk"), arr=self.entity_embeddings.numpy())
         np.save(file=os.path.join(path, "relation_embeddings.npk"), arr=self.relation_embeddings.numpy())

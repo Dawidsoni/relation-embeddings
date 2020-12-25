@@ -28,7 +28,7 @@ TEST_DATASET_FILENAME = "test.txt"
 @dataclass
 class ExperimentConfig:
     experiment_name: str = gin.REQUIRED
-    epochs: int = gin.REQUIRED
+    training_steps: int = gin.REQUIRED
     steps_per_evaluation: int = gin.REQUIRED
     tensorboard_outputs_folder: str = gin.REQUIRED
     model_save_folder: str = gin.REQUIRED
@@ -140,15 +140,18 @@ def evaluate_and_log_test_metrics(model, loss_object, logger):
 
 
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
-    batched_training_dataset = Dataset(graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=gin.REQUIRED)
+    batched_training_dataset = Dataset(
+        graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=gin.REQUIRED, repeat_samples=True
+    )
     model = create_model(batched_training_dataset)
     loss_object = LossObject()
     trainer = ModelTrainer(model, loss_object, learning_rate_schedule=create_learning_rate_schedule())
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     training_evaluator = create_training_evaluator(tensorboard_folder, model, loss_object)
     validation_evaluator = create_validation_evaluator(tensorboard_folder, model, loss_object)
+    training_samples = batched_training_dataset.pairs_of_samples.take(experiment_config.training_steps)
     training_step = 1
-    for positive_inputs, negative_inputs in batched_training_dataset.pairs_of_samples.repeat(experiment_config.epochs):
+    for positive_inputs, negative_inputs in training_samples:
         logger.info(f"Performing training step {training_step}")
         trainer.train_step(positive_inputs, negative_inputs)
         if training_step % experiment_config.steps_per_evaluation == 0:
