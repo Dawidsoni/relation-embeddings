@@ -6,4 +6,5 @@ python3 ../src/train_model.py \
     "ExperimentConfig.steps_per_evaluation = 50" \
     "Dataset.batch_size = 3000" \
     "LossObject.optimized_metric = %OptimizedMetric.SOFTPLUS" \
+    "transe/ModelConfig.include_reduce_dim_layer = True" \
     "ExperimentConfig.experiment_name = 'transe_wn18rr_softplus'"
