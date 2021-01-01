@@ -104,8 +104,10 @@ def create_model(
 
 
 @gin.configurable
-def create_learning_rate_schedule(initial_learning_rate, decay_steps, decay_rate):
-    return tf.keras.optimizers.schedules.ExponentialDecay(initial_learning_rate, decay_steps, decay_rate)
+def create_learning_rate_schedule(initial_learning_rate, decay_steps, decay_rate, staircase=False):
+    return tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate, decay_steps, decay_rate, staircase=staircase
+    )
 
 
 def get_existing_graph_edges():
