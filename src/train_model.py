@@ -117,13 +117,15 @@ def get_existing_graph_edges():
     return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
 
 
-def create_training_evaluator(tensorboard_folder, model, loss_object):
+def create_training_evaluator(tensorboard_folder, model, loss_object, learning_rate_scheduler=None):
     existing_graph_edges = get_existing_graph_edges()
     unbatched_training_dataset = Dataset(
         graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
     outputs_folder = os.path.join(tensorboard_folder, "train")
-    return ModelEvaluator(model, loss_object, unbatched_training_dataset, existing_graph_edges, outputs_folder)
+    return ModelEvaluator(
+        model, loss_object, unbatched_training_dataset, existing_graph_edges, outputs_folder, learning_rate_scheduler
+    )
 
 
 def create_validation_evaluator(tensorboard_folder, model, loss_object):
@@ -156,9 +158,10 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
     )
     model = create_model(batched_training_dataset)
     loss_object = LossObject()
-    trainer = ModelTrainer(model, loss_object, learning_rate_schedule=create_learning_rate_schedule())
+    learning_rate_scheduler = create_learning_rate_schedule()
+    trainer = ModelTrainer(model, loss_object, learning_rate_scheduler)
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
-    training_evaluator = create_training_evaluator(tensorboard_folder, model, loss_object)
+    training_evaluator = create_training_evaluator(tensorboard_folder, model, loss_object, learning_rate_scheduler)
     validation_evaluator = create_validation_evaluator(tensorboard_folder, model, loss_object)
     training_samples = batched_training_dataset.pairs_of_samples.take(experiment_config.training_steps)
     training_step = 1
