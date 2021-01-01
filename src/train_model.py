@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import tensorflow as tf
+import numpy as np
 import gin.tf
 from dataclasses import dataclass
 from enum import Enum
@@ -81,8 +82,12 @@ def create_model(
         training_dataset, model_type=gin.REQUIRED, entity_embeddings_path=gin.REQUIRED,
         relations_embeddings_path=gin.REQUIRED
 ):
-    pretrained_entity_embeddings = None  # TODO: Support loading embeddings
-    pretrained_relations_embeddings = None  # TODO: Support loading embeddings
+    pretrained_entity_embeddings = (
+        np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
+    )
+    pretrained_relations_embeddings = (
+        np.load(relations_embeddings_path) if relations_embeddings_path is not None else None
+    )
     entities_count = max(training_dataset.ids_of_entities) + 1
     relations_count = max(training_dataset.ids_of_relations) + 1
     data_config = DataConfig(

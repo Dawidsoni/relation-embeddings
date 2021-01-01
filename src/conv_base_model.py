@@ -96,5 +96,5 @@ class ConvBaseModel(tf.keras.Model):
         if not os.path.exists(path):
             os.makedirs(path)
         self.save_weights(filepath=os.path.join(path, "saved_weights.tf"), save_format="tf")
-        np.save(file=os.path.join(path, "entity_embeddings.npk"), arr=self.entity_embeddings.numpy())
-        np.save(file=os.path.join(path, "relation_embeddings.npk"), arr=self.relation_embeddings.numpy())
+        np.save(file=os.path.join(path, "entity_embeddings"), arr=self.entity_embeddings.numpy())
+        np.save(file=os.path.join(path, "relation_embeddings"), arr=self.relation_embeddings.numpy())
