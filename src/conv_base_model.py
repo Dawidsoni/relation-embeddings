@@ -53,6 +53,16 @@ class ConvBaseModel(tf.keras.Model):
             return tf.random.truncated_normal(shape=shape)
         return pretrained_embeddings
 
+    def extract_and_transform_embeddings(self, head_entity_ids, relation_ids, tail_entity_ids):
+        head_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, head_entity_ids), axis=2)
+        relation_embeddings = tf.expand_dims(tf.gather(self.relation_embeddings, relation_ids), axis=2)
+        tail_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, tail_entity_ids), axis=2)
+        if self.normalize_embeddings:
+            head_entity_embeddings = tf.math.l2_normalize(head_entity_embeddings, axis=1)
+            relation_embeddings = tf.math.l2_normalize(relation_embeddings, axis=1)
+            tail_entity_embeddings = tf.math.l2_normalize(tail_entity_embeddings, axis=1)
+        return head_entity_embeddings, relation_embeddings, tail_entity_embeddings
+
     @property
     @abstractmethod
     def conv_layers(self):
@@ -72,13 +82,9 @@ class ConvBaseModel(tf.keras.Model):
 
     def call(self, inputs, training=None, **kwargs):
         head_entity_ids, relation_ids, tail_entity_ids = tf.unstack(inputs, axis=1)
-        head_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, head_entity_ids), axis=2)
-        relation_embeddings = tf.expand_dims(tf.gather(self.relation_embeddings, relation_ids), axis=2)
-        tail_entity_embeddings = tf.expand_dims(tf.gather(self.entity_embeddings, tail_entity_ids), axis=2)
-        if self.normalize_embeddings:
-            head_entity_embeddings = tf.math.l2_normalize(head_entity_embeddings, axis=1)
-            relation_embeddings = tf.math.l2_normalize(relation_embeddings, axis=1)
-            tail_entity_embeddings = tf.math.l2_normalize(tail_entity_embeddings, axis=1)
+        head_entity_embeddings, relation_embeddings, tail_entity_embeddings = self.extract_and_transform_embeddings(
+            head_entity_ids, relation_ids, tail_entity_ids
+        )
         concat_embeddings = tf.concat([head_entity_embeddings, relation_embeddings, tail_entity_embeddings], axis=2)
         image_of_embeddings = tf.expand_dims(concat_embeddings, axis=3)
         return self._rate_triples(image_of_embeddings, training)

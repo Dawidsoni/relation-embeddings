@@ -14,6 +14,7 @@ from model_trainer import ModelTrainer
 from model_evaluator import ModelEvaluator
 from conv_base_model import DataConfig
 from transe_model import TranseModel
+from s_transe_model import STranseModel
 from convkb_model import ConvKBModel
 from evaluation_metrics import EvaluationMetrics
 
@@ -38,7 +39,8 @@ class ExperimentConfig:
 @gin.constants_from_enum
 class ModelType(Enum):
     TRANSE = 1
-    CONVKB = 2
+    STRANSE = 2
+    CONVKB = 3
 
 
 def parse_training_args():
@@ -88,6 +90,8 @@ def create_model(
     )
     if model_type == ModelType.TRANSE:
         return TranseModel(data_config)
+    elif model_type == ModelType.STRANSE:
+        return STranseModel(data_config)
     elif model_type == ModelType.CONVKB:
         return ConvKBModel(data_config)
     else:
