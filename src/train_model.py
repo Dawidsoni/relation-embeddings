@@ -157,7 +157,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
     training_step = 1
     for positive_inputs, negative_inputs in training_samples:
         logger.info(f"Performing training step {training_step}")
-        trainer.train_step(positive_inputs, negative_inputs)
+        trainer.train_step(positive_inputs, negative_inputs, training_step)
         if training_step % experiment_config.steps_per_evaluation == 0:
             logger.info(f"Evaluating a model on training data")
             training_evaluator.evaluation_step(training_step)

@@ -11,13 +11,14 @@ from transe_model import TranseModel
 class EmbeddingsTransformConfig:
     constrain_embeddings_norm: bool
     constrain_transformed_embeddings_norm: bool
-    initialize_with_identity: bool
+    initialize_transformations_with_identity: bool
+    trainable_transformations_min_iteration: int
 
 
 class EmbeddingsTransformInitializer(tf.keras.initializers.Initializer):
 
-    def __init__(self, initialize_with_identity: bool):
-        self.initialize_with_identity = initialize_with_identity
+    def __init__(self, initialize_transformations_with_identity: bool):
+        self.initialize_transformations_with_identity = initialize_transformations_with_identity
         self.default_initializer = tf.keras.initializers.GlorotNormal()
 
     def __call__(self, shape, **kwargs):
@@ -25,13 +26,13 @@ class EmbeddingsTransformInitializer(tf.keras.initializers.Initializer):
             raise ValueError(f"Expected a Tensor of rank at least 2, got {tf.rank(shape)}")
         if shape[-2] != shape[-1]:
             raise ValueError(f"Expected two last dimensions to be equal, got {shape[-2]} != {shape[-1]}")
-        if self.initialize_with_identity:
+        if self.initialize_transformations_with_identity:
             return tf.eye(shape[-1], batch_shape=shape[:-2])
         else:
             return self.default_initializer(shape)
 
     def get_config(self):
-        return {"initialize_with_identity": self.initialize_with_identity}
+        return {"initialize_transformations_with_identity": self.initialize_transformations_with_identity}
 
 
 @gin.configurable(blacklist=['data_config'])
@@ -47,7 +48,7 @@ class STranseModel(TranseModel):
             data_config.relations_count, model_config.embeddings_dimension, model_config.embeddings_dimension
         )
         transformations_initializer = EmbeddingsTransformInitializer(
-            self.embeddings_transform_config.initialize_with_identity
+            self.embeddings_transform_config.initialize_transformations_with_identity
         )
         self.head_transformation_matrices = tf.Variable(
             initial_value=transformations_initializer(transformations_shape),
@@ -86,3 +87,12 @@ class STranseModel(TranseModel):
         head_entity_embeddings = self._constrain_transformed_embeddings(head_entity_embeddings)
         tail_entity_embeddings = self._constrain_transformed_embeddings(tail_entity_embeddings)
         return head_entity_embeddings, relation_embeddings, tail_entity_embeddings
+
+    def get_trainable_variables_at_training_step(self, training_step):
+        if self.embeddings_transform_config.trainable_transformations_min_iteration <= training_step:
+            return self.trainable_variables
+        non_trainable_patterns = {"head_transformation_matrices", "tail_transformation_matrices"}
+        return [
+            variable for variable in self.trainable_variables
+            if all([pattern not in variable.name for pattern in non_trainable_patterns])
+        ]

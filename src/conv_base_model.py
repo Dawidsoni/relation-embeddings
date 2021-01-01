@@ -89,6 +89,9 @@ class ConvBaseModel(tf.keras.Model):
         image_of_embeddings = tf.expand_dims(concat_embeddings, axis=3)
         return self._rate_triples(image_of_embeddings, training)
 
+    def get_trainable_variables_at_training_step(self, training_step):
+        return self.trainable_variables
+
     def save_with_embeddings(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
