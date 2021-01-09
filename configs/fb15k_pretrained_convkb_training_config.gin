@@ -7,7 +7,7 @@ Dataset.batch_size = 256
 # LossObject
 
 LossObject.optimized_metric = %OptimizedMetric.SOFTPLUS
-LossObject.regularization_strength = 1e-3
+LossObject.regularization_strength = 5e-6
 LossObject.norm_metric_order = 1
 LossObject.norm_metric_margin = 1.0
 
@@ -17,8 +17,8 @@ LossObject.norm_metric_margin = 1.0
 convkb/ModelConfig.embeddings_dimension = 100
 convkb/ModelConfig.trainable_embeddings = True
 convkb/ModelConfig.include_reduce_dim_layer = True
-convkb/ModelConfig.normalize_embeddings = False
-convkb/ModelConfig.dropout_rate = 0.0
+convkb/ModelConfig.normalize_embeddings = True
+convkb/ModelConfig.dropout_rate = 0.5
 
 convkb/ConvolutionsConfig.filter_heights = [1]
 convkb/ConvolutionsConfig.filters_count_per_height = 50
@@ -32,8 +32,8 @@ ConvKBModel.convolutions_config = @convkb/ConvolutionsConfig()
 # Creating a model
 
 create_model.model_type = %ModelType.CONVKB
-create_model.entity_embeddings_path = None
-create_model.relations_embeddings_path = None
+create_model.entity_embeddings_path = "/pio/scratch/1/i279743/models/s_transe_fb15k_freeze_5800_margin_5_lr_0_01_1609579117/entity_embeddings.npy"
+create_model.relations_embeddings_path = "/pio/scratch/1/i279743/models/s_transe_fb15k_freeze_5800_margin_5_lr_0_01_1609579117/relation_embeddings.npy"
 
 
 # Creating a learning rate schedule
