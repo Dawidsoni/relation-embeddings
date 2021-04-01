@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from edges_producer import EdgesProducer
-from evaluation_metrics import EvaluationMetrics
+from data_handlers.edges_producer import EdgesProducer
+from data_handlers.evaluation_metrics import EvaluationMetrics
 
 
 class ModelEvaluator(object):

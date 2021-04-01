@@ -1,12 +1,12 @@
 import tensorflow as tf
 import numpy as np
 
-from dataset import Dataset
-from edges_producer import EdgesProducer
+from data_handlers.dataset import Dataset
+from data_handlers.edges_producer import EdgesProducer
 
 
 class TestEdgesCandidatesProducer(tf.test.TestCase):
-    DATASET_PATH = '../test_data'
+    DATASET_PATH = '../../test_data'
 
     def test_produce_head_edges(self):
         dataset = Dataset(graph_edges_filename='graph_edges.txt', data_directory=self.DATASET_PATH)

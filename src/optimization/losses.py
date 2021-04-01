@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from enum import Enum
 import tensorflow as tf
 import gin.tf

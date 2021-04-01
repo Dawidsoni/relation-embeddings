@@ -1,15 +1,17 @@
 import tensorflow as tf
 import gin.tf
+import dataclasses
 from dataclasses import dataclass
 from typing import Sequence, Union
 import functools
 
-from conv_base_model import ConvBaseModel, DataConfig, ModelConfig
+from layers.embeddings_layers import EmbeddingsConfig
+from models.conv_base_model import ConvBaseModel, ConvModelConfig
 
 
 @gin.configurable
 @dataclass
-class ConvolutionsConfig:
+class ConvolutionsConfig(object):
     filter_heights: Sequence[int]
     filters_count_per_height: int
     activation: Union[str, tf.keras.layers.Activation]
@@ -36,14 +38,16 @@ class ConvolutionWeightsInitializer(tf.keras.initializers.Initializer):
         return {"use_constant_initialization": self.use_constant_initialization}
 
 
-@gin.configurable(blacklist=['data_config'])
+@gin.configurable(blacklist=['embeddings_config'])
 class ConvKBModel(ConvBaseModel):
 
     def __init__(
-        self, data_config: DataConfig, model_config: ModelConfig = gin.REQUIRED,
-        convolutions_config: ConvolutionsConfig = gin.REQUIRED
+        self,
+        embeddings_config: EmbeddingsConfig,
+        model_config: ConvModelConfig = gin.REQUIRED,
+        convolutions_config: ConvolutionsConfig = gin.REQUIRED,
     ):
-        super(ConvKBModel, self).__init__(data_config, model_config)
+        super(ConvKBModel, self).__init__(embeddings_config, model_config)
         filters_count_per_height = convolutions_config.filters_count_per_height
         conv_activation = convolutions_config.activation
         conv_layer_func = functools.partial(
@@ -59,3 +63,10 @@ class ConvKBModel(ConvBaseModel):
     @property
     def conv_layers(self):
         return self._conv_layers
+
+    def get_config(self):
+        return {
+            **dataclasses.asdict(self.embeddings_config),
+            **dataclasses.asdict(self.model_config),
+            **dataclasses.asdict(self.convolutions_config),
+        }

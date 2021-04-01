@@ -8,16 +8,16 @@ import gin.tf
 from dataclasses import dataclass
 from enum import Enum
 
-from dataset import Dataset
-from edges_producer import EdgesProducer
-from losses import LossObject
-from model_trainer import ModelTrainer
-from model_evaluator import ModelEvaluator
-from conv_base_model import DataConfig
-from transe_model import TranseModel
-from s_transe_model import STranseModel
-from convkb_model import ConvKBModel
-from evaluation_metrics import EvaluationMetrics
+from data_handlers.dataset import Dataset
+from data_handlers.edges_producer import EdgesProducer
+from data_handlers.losses import LossObject
+from optimization.model_trainers import ModelTrainer
+from optimization.model_evaluator import ModelEvaluator
+from models.conv_base_model import EmbeddingsConfig
+from models.transe_model import TranseModel
+from models.s_transe_model import STranseModel
+from models.convkb_model import ConvKBModel
+from data_handlers.evaluation_metrics import EvaluationMetrics
 
 
 DEFAULT_LOGGER_NAME = "default_logger"
@@ -90,15 +90,15 @@ def create_model(
     )
     entities_count = max(training_dataset.ids_of_entities) + 1
     relations_count = max(training_dataset.ids_of_relations) + 1
-    data_config = DataConfig(
+    embeddings_config = EmbeddingsConfig(
         entities_count, relations_count, pretrained_entity_embeddings, pretrained_relations_embeddings
     )
     if model_type == ModelType.TRANSE:
-        return TranseModel(data_config)
+        return TranseModel(embeddings_config)
     elif model_type == ModelType.STRANSE:
-        return STranseModel(data_config)
+        return STranseModel(embeddings_config)
     elif model_type == ModelType.CONVKB:
-        return ConvKBModel(data_config)
+        return ConvKBModel(embeddings_config)
     else:
         raise ValueError(f"Invalid model_type: {model_type}")
 

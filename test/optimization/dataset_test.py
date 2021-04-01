@@ -2,11 +2,11 @@ import tensorflow as tf
 import gin.tf
 import numpy as np
 
-from dataset import Dataset
+from data_handlers.dataset import Dataset
 
 
 class TestDatasets(tf.test.TestCase):
-    DATASET_PATH = '../test_data'
+    DATASET_PATH = '../../test_data'
 
     def test_samples(self):
         dataset = Dataset(graph_edges_filename='graph_edges.txt', data_directory=self.DATASET_PATH)

@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from evaluation_metrics import EvaluationMetrics
+from data_handlers.evaluation_metrics import EvaluationMetrics
 
 
 class TestEvaluationMetrics(tf.test.TestCase):

@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 import gin.tf
 
-from losses import LossObject, OptimizedMetric
-from transe_model import TranseModel
-from conv_base_model import DataConfig, ModelConfig
+from data_handlers.losses import LossObject, OptimizedMetric
+from models.transe_model import TranseModel
+from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 
 
 class TestTranseModel(tf.test.TestCase):
@@ -91,12 +91,12 @@ class TestTranseModel(tf.test.TestCase):
     def test_get_regularization_loss(self):
         pretrained_entity_embeddings = tf.ones(shape=(3, 4))
         pretrained_relations_embeddings = 2 * tf.ones(shape=(2, 4))
-        data_config = DataConfig(
+        embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, pretrained_entity_embeddings=pretrained_entity_embeddings,
             pretrained_relations_embeddings=pretrained_relations_embeddings
         )
-        model_config = ModelConfig(embeddings_dimension=4, include_reduce_dim_layer=False)
-        transe_model = TranseModel(data_config, model_config)
+        model_config = ConvModelConfig(embeddings_dimension=4, include_reduce_dim_layer=False)
+        transe_model = TranseModel(embeddings_config, model_config)
         loss_object = LossObject(OptimizedMetric.SOFTPLUS, regularization_strength=0.1)
         self.assertAllClose(0.28, loss_object.get_regularization_loss(transe_model))
 
