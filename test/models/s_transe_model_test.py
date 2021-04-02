@@ -4,6 +4,7 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.s_transe_model import STranseModel, EmbeddingsTransformConfig
+from optimization.datasets import ObjectType
 
 
 class STestTranseModel(tf.test.TestCase):
@@ -13,7 +14,8 @@ class STestTranseModel(tf.test.TestCase):
         self.relation_embeddings = np.array([[3., 3., 3., 3.], [0.6, -0.8, 0.0, 0.0]], dtype=np.float32)
         self.embeddings_config = EmbeddingsConfig(entities_count=3, relations_count=2, embeddings_dimension=4)
         self.model_config = ConvModelConfig(include_reduce_dim_layer=False)
-        self.model_inputs = np.array([[0, 0, 1], [0, 1, 2]])
+        edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
+        self.model_inputs = np.array(([[0, 0, 1], [0, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
         gin.clear_config()
 
     def test_outputs(self):
@@ -77,7 +79,7 @@ class STestTranseModel(tf.test.TestCase):
         )
         model = STranseModel(self.embeddings_config, self.model_config, embeddings_transform_config)
         trainable_variables = model.get_trainable_variables_at_training_step(training_step=1)
-        self.assertLen(trainable_variables, expected_len=2)
+        self.assertLen(trainable_variables, expected_len=3)
 
     def test_training_step_equal_transformations_min_iteration(self):
         embeddings_transform_config = EmbeddingsTransformConfig(
@@ -86,7 +88,7 @@ class STestTranseModel(tf.test.TestCase):
         )
         model = STranseModel(self.embeddings_config, self.model_config, embeddings_transform_config)
         trainable_variables = model.get_trainable_variables_at_training_step(training_step=2)
-        self.assertLen(trainable_variables, expected_len=4)
+        self.assertLen(trainable_variables, expected_len=5)
 
 
 if __name__ == '__main__':

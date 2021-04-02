@@ -4,6 +4,7 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.transe_model import TranseModel
+from optimization.datasets import ObjectType
 
 
 class TestTranseModel(tf.test.TestCase):
@@ -11,7 +12,8 @@ class TestTranseModel(tf.test.TestCase):
     def setUp(self):
         self.entity_embeddings = np.array([[0., 0., 0., 0.], [1., 1., 2., 1.], [2., 2., 2., 2.]], dtype=np.float32)
         self.relation_embeddings = np.array([[3., 3., 3., 3.], [4., 3., 4., 4.]], dtype=np.float32)
-        self.model_inputs = np.array([[0, 0, 1], [1, 1, 2]])
+        edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
+        self.model_inputs = np.array(([[0, 0, 1], [1, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
         gin.clear_config()
 
     def test_outputs(self):
@@ -100,7 +102,7 @@ class TestTranseModel(tf.test.TestCase):
         transe_model = TranseModel(embeddings_config, model_config)
         transe_model.embeddings_layer.entity_embeddings.assign([[0., 0.], [1., 0.], [0.8, 0.6]])
         transe_model.embeddings_layer.relation_embeddings.assign([[1.6, 1.2], [2.4, 3.2]])
-        outputs = transe_model([[0, 0, 1], [1, 1, 2]], training=True)
+        outputs = transe_model(self.model_inputs, training=True)
         self.assertEqual((2, 2), outputs.shape)
         self.assertAllClose([[-0.2, 0.6], [0.8, 0.2]], outputs.numpy())
 

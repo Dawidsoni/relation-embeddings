@@ -4,6 +4,7 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.convkb_model import ConvKBModel, ConvolutionsConfig
+from optimization.datasets import ObjectType
 
 
 class TestConvKBModel(tf.test.TestCase):
@@ -27,7 +28,8 @@ class TestConvKBModel(tf.test.TestCase):
         self.default_relation_embeddings = np.array([[3., 3., 3., 3.], [4., 3., 4., 4.]], dtype=np.float32)
         self.default_kernel = np.array([[[[1.0]], [[1.0]], [[-1.0]]]])
         self.default_bias = np.array([0.0])
-        self.model_inputs = np.array([[0, 0, 1], [1, 1, 2]])
+        edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
+        self.model_inputs = np.array(([[0, 0, 1], [1, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
 
     def test_outputs(self):
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
@@ -184,7 +186,7 @@ class TestConvKBModel(tf.test.TestCase):
         convkb_model(self.model_inputs)
         convkb_model.conv_layers[0].kernel.assign(self.default_kernel)
         convkb_model.conv_layers[0].bias.assign(self.default_bias)
-        outputs = convkb_model([[0, 0, 1], [1, 1, 2]], training=True)
+        outputs = convkb_model(self.model_inputs, training=True)
         self.assertEqual((2, 2), outputs.shape)
         self.assertAllClose([[0.0, 0.6], [0.8, 0.2]], outputs.numpy())
 

@@ -96,12 +96,13 @@ class STranseModel(TranseModel):
         }
 
     def call(self, inputs, training=None, **kwargs):
-        head_entity_embeddings, relation_embeddings, tail_entity_embeddings = self.embeddings_layer(inputs)
+        extracted_embeddings = self.embeddings_layer(inputs)
+        head_entity_embeddings, relation_embeddings, tail_entity_embeddings = tf.unstack(extracted_embeddings, axis=1)
         if self.normalize_embeddings:
             head_entity_embeddings = tf.math.l2_normalize(head_entity_embeddings, axis=1)
             relation_embeddings = tf.math.l2_normalize(relation_embeddings, axis=1)
             tail_entity_embeddings = tf.math.l2_normalize(tail_entity_embeddings, axis=1)
-        relation_ids = tf.unstack(inputs, axis=1)[1]
+        relation_ids = tf.unstack(inputs[0], axis=1)[1]
         head_entity_embeddings = self._constrain_embeddings(tf.expand_dims(head_entity_embeddings, axis=2))
         head_transformations = tf.gather(self.head_transformation_matrices, relation_ids)
         head_entity_embeddings = tf.linalg.matmul(head_transformations, head_entity_embeddings)
