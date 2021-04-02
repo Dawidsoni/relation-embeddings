@@ -101,7 +101,7 @@ class STranseModel(TranseModel):
             head_entity_embeddings = tf.math.l2_normalize(head_entity_embeddings, axis=1)
             relation_embeddings = tf.math.l2_normalize(relation_embeddings, axis=1)
             tail_entity_embeddings = tf.math.l2_normalize(tail_entity_embeddings, axis=1)
-        unused_head_ids, relation_ids, unused_tail_ids = tf.unstack(inputs, axis=1)
+        relation_ids = tf.unstack(inputs, axis=1)[1]
         head_entity_embeddings = self._constrain_embeddings(tf.expand_dims(head_entity_embeddings, axis=2))
         head_transformations = tf.gather(self.head_transformation_matrices, relation_ids)
         head_entity_embeddings = tf.linalg.matmul(head_transformations, head_entity_embeddings)

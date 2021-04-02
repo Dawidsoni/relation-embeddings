@@ -39,7 +39,7 @@ class TestTranseModel(tf.test.TestCase):
     def test_pretrained_embeddings(self):
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, pretrained_entity_embeddings=self.entity_embeddings,
-            embeddings_dimension=4, pretrained_relations_embeddings=self.relation_embeddings
+            embeddings_dimension=4, pretrained_relation_embeddings=self.relation_embeddings
         )
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
         transe_model = TranseModel(embeddings_config, model_config)

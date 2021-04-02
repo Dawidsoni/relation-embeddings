@@ -77,6 +77,7 @@ class StackedTransformerEncodersLayer(tf.keras.layers.Layer):
         attention_head_dimension: int = gin.REQUIRED,
         pointwise_hidden_layer_dimension: int = gin.REQUIRED,
         dropout_rate: float = gin.REQUIRED,
+        share_encoder_parameters: bool = gin.REQUIRED,
     ):
         super(StackedTransformerEncodersLayer, self).__init__()
         encoder_layer_initializer = functools.partial(
@@ -86,7 +87,11 @@ class StackedTransformerEncodersLayer(tf.keras.layers.Layer):
             pointwise_hidden_layer_dimension=pointwise_hidden_layer_dimension,
             dropout_rate=dropout_rate,
         )
-        self.sublayers = [encoder_layer_initializer() for _ in range(layers_count)]
+        if share_encoder_parameters:
+            shared_encoder_layer = encoder_layer_initializer()
+            self.sublayers = [shared_encoder_layer for _ in range(layers_count)]
+        else:
+            self.sublayers = [encoder_layer_initializer() for _ in range(layers_count)]
 
     def call(self, inputs, training=None):
         outputs = inputs

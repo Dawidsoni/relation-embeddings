@@ -8,22 +8,19 @@ import gin.tf
 from dataclasses import dataclass
 from enum import Enum
 
-from data_handlers.dataset import Dataset
-from data_handlers.edges_producer import EdgesProducer
-from data_handlers.losses import LossObject
+from optimization.datasets import SamplingDataset
+from optimization.edges_producer import EdgesProducer
+from optimization.losses import LossObject
 from optimization.model_trainers import ModelTrainer
 from optimization.model_evaluator import ModelEvaluator
 from models.conv_base_model import EmbeddingsConfig
 from models.transe_model import TranseModel
 from models.s_transe_model import STranseModel
 from models.convkb_model import ConvKBModel
-from data_handlers.evaluation_metrics import EvaluationMetrics
+from optimization.evaluation_metrics import EvaluationMetrics
 
 
 DEFAULT_LOGGER_NAME = "default_logger"
-TRAINING_DATASET_FILENAME = "train.txt"
-VALIDATION_DATASET_FILENAME = "valid.txt"
-TEST_DATASET_FILENAME = "test.txt"
 
 
 @gin.configurable
@@ -85,13 +82,13 @@ def create_model(
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
     )
-    pretrained_relations_embeddings = (
+    pretrained_relation_embeddings = (
         np.load(relations_embeddings_path) if relations_embeddings_path is not None else None
     )
     entities_count = max(training_dataset.ids_of_entities) + 1
     relations_count = max(training_dataset.ids_of_relations) + 1
     embeddings_config = EmbeddingsConfig(
-        entities_count, relations_count, pretrained_entity_embeddings, pretrained_relations_embeddings
+        entities_count, relations_count, pretrained_entity_embeddings, pretrained_relation_embeddings
     )
     if model_type == ModelType.TRANSE:
         return TranseModel(embeddings_config)
@@ -111,15 +108,15 @@ def create_learning_rate_schedule(initial_learning_rate, decay_steps, decay_rate
 
 
 def get_existing_graph_edges():
-    training_dataset = Dataset(graph_edges_filename=TRAINING_DATASET_FILENAME)
-    validation_dataset = Dataset(graph_edges_filename=VALIDATION_DATASET_FILENAME)
-    test_dataset = Dataset(graph_edges_filename=TEST_DATASET_FILENAME)
+    training_dataset = SamplingDataset(graph_edges_filename=TRAINING_DATASET_FILENAME)
+    validation_dataset = SamplingDataset(graph_edges_filename=VALIDATION_DATASET_FILENAME)
+    test_dataset = SamplingDataset(graph_edges_filename=TEST_DATASET_FILENAME)
     return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
 
 
 def create_training_evaluator(tensorboard_folder, model, loss_object, learning_rate_scheduler=None):
     existing_graph_edges = get_existing_graph_edges()
-    unbatched_training_dataset = Dataset(
+    unbatched_training_dataset = SamplingDataset(
         graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
     outputs_folder = os.path.join(tensorboard_folder, "train")
@@ -130,7 +127,7 @@ def create_training_evaluator(tensorboard_folder, model, loss_object, learning_r
 
 def create_validation_evaluator(tensorboard_folder, model, loss_object):
     existing_graph_edges = get_existing_graph_edges()
-    unbatched_validation_dataset = Dataset(
+    unbatched_validation_dataset = SamplingDataset(
         graph_edges_filename=VALIDATION_DATASET_FILENAME, batch_size=None, repeat_samples=True
     )
     output_directory = os.path.join(tensorboard_folder, "validation")
@@ -138,7 +135,7 @@ def create_validation_evaluator(tensorboard_folder, model, loss_object):
 
 
 def evaluate_and_log_test_metrics(model, loss_object, logger):
-    test_dataset = Dataset(graph_edges_filename=TEST_DATASET_FILENAME, batch_size=None, repeat_samples=False)
+    test_dataset = SamplingDataset(graph_edges_filename=TEST_DATASET_FILENAME, batch_size=None, repeat_samples=False)
     existing_graph_edges = get_existing_graph_edges()
     edges_producer = EdgesProducer(test_dataset.ids_of_entities, existing_graph_edges)
     samples_iterator = test_dataset.positive_samples.as_numpy_iterator()
@@ -153,7 +150,7 @@ def evaluate_and_log_test_metrics(model, loss_object, logger):
 
 
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
-    batched_training_dataset = Dataset(
+    batched_training_dataset = SamplingDataset(
         graph_edges_filename=TRAINING_DATASET_FILENAME, batch_size=gin.REQUIRED, repeat_samples=True
     )
     model = create_model(batched_training_dataset)

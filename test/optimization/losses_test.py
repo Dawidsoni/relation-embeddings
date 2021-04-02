@@ -90,10 +90,10 @@ class TestTranseModel(tf.test.TestCase):
 
     def test_get_regularization_loss(self):
         pretrained_entity_embeddings = tf.ones(shape=(3, 4))
-        pretrained_relations_embeddings = 2 * tf.ones(shape=(2, 4))
+        pretrained_relation_embeddings = 2 * tf.ones(shape=(2, 4))
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, pretrained_entity_embeddings=pretrained_entity_embeddings,
-            pretrained_relations_embeddings=pretrained_relations_embeddings
+            pretrained_relation_embeddings=pretrained_relation_embeddings
         )
         model_config = ConvModelConfig(embeddings_dimension=4, include_reduce_dim_layer=False)
         transe_model = TranseModel(embeddings_config, model_config)

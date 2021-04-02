@@ -120,7 +120,7 @@ class TestConvKBModel(tf.test.TestCase):
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4,
             pretrained_entity_embeddings=self.default_entity_embeddings,
-            pretrained_relations_embeddings=self.default_relation_embeddings
+            pretrained_relation_embeddings=self.default_relation_embeddings
         )
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
         convkb_model = ConvKBModel(embeddings_config, model_config, self.default_convolutions_config)

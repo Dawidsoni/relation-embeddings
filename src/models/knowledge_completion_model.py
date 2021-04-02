@@ -22,3 +22,4 @@ class KnowledgeCompletionModel(tf.keras.Model, ABC):
         np.save(file=os.path.join(path, "entity_embeddings"), arr=self.embeddings_layer.entity_embeddings.numpy())
         np.save(file=os.path.join(path, "relation_embeddings"), arr=self.embeddings_layer.relation_embeddings.numpy())
         np.save(file=os.path.join(path, "position_embeddings"), arr=self.position_layer.relation_embeddings.numpy())
+        np.save(file=os.path.join(path, "mask_embeddings"), arr=self.position_layer.mask_embeddings.numpy())
