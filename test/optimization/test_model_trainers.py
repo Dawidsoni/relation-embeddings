@@ -8,7 +8,7 @@ from optimization.loss_objects import NormLossObject
 from models.transe_model import TranseModel
 
 
-class TestModelTrainer(tf.test.TestCase):
+class TestModelTrainers(tf.test.TestCase):
     DATASET_PATH = '../../data/test_data'
 
     def test_sampling_model_trainer(self):

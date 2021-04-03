@@ -7,7 +7,7 @@ from models.transe_model import TranseModel
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 
 
-class TestTranseModel(tf.test.TestCase):
+class TestLossObjects(tf.test.TestCase):
 
     def setUp(self):
         self.default_norm_inputs = np.array([[3.0, 4.0], [6.0, 8.0]])

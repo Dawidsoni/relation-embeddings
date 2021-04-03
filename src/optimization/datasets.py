@@ -116,13 +116,8 @@ class SamplingDataset(Dataset):
     @property
     def samples(self):
         positive_samples = self._get_positive_samples_dataset()
-        if self.dataset_type == DatasetType.TRAINING:
-            negative_samples = self._get_negative_samples_dataset()
-            return tf.data.Dataset.zip((positive_samples, negative_samples))
-        elif self.dataset_type in [DatasetType.VALIDATION, DatasetType.TEST]:
-            return positive_samples
-        else:
-            raise ValueError(f"Expected an instance of DatasetType, got {self.dataset_type}")
+        negative_samples = self._get_negative_samples_dataset()
+        return tf.data.Dataset.zip((positive_samples, negative_samples))
 
 
 @gin.configurable
