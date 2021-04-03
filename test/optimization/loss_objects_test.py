@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import gin.tf
 
-from data_handlers.losses import LossObject, OptimizedMetric
+from optimization.loss_objects import NormLossObject, SoftplusLossObject
 from models.transe_model import TranseModel
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 
@@ -15,44 +15,36 @@ class TestTranseModel(tf.test.TestCase):
         gin.clear_config()
 
     def test_norm_metric_outputs(self):
-        loss_object = LossObject(
-            OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_order=2, norm_metric_margin=1.0
-        )
+        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=1.0)
         losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertAllClose([5., 10.], losses)
 
     def test_norm_metric_order(self):
-        loss_object = LossObject(
-            OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_order=1, norm_metric_margin=1.0
-        )
+        loss_object = NormLossObject(regularization_strength=1.0, order=1, margin=1.0)
         losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertAllClose([7., 14.], losses)
 
     def test_softplus_metric(self):
-        loss_object = LossObject(OptimizedMetric.SOFTPLUS, regularization_strength=1.0)
+        loss_object = SoftplusLossObject(regularization_strength=1.0)
         losses = loss_object.get_losses_of_positive_samples(self.default_softplus_inputs)
         self.assertAllClose([2.126928, 3.048587], losses)
 
     def test_mean_loss_pairs_norm_metric(self):
-        loss_object = LossObject(
-            OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_order=2, norm_metric_margin=1.0
-        )
+        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=1.0)
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_norm_inputs, negative_samples=self.default_norm_inputs[[1, 0]]
         )
         self.assertAllClose(3.0, loss)
 
     def test_mean_loss_pairs_norm_metric_margin(self):
-        loss_object = LossObject(
-            OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_order=2, norm_metric_margin=3.0
-        )
+        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=3.0)
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_norm_inputs, negative_samples=self.default_norm_inputs[[1, 0]]
         )
         self.assertAllClose(4.0, loss)
 
     def test_mean_loss_pairs_softplus_metric(self):
-        loss_object = LossObject(OptimizedMetric.SOFTPLUS, regularization_strength=1.0)
+        loss_object = SoftplusLossObject(regularization_strength=1.0)
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_softplus_inputs, negative_samples=self.default_softplus_inputs[[1, 0]]
         )
@@ -60,30 +52,18 @@ class TestTranseModel(tf.test.TestCase):
 
     def test_gin_config(self):
         gin_config = """
-            LossObject.optimized_metric = %OptimizedMetric.NORM
-            LossObject.regularization_strength = 1.0
-            LossObject.norm_metric_order = 2
-            LossObject.norm_metric_margin = 1.0
+            create_loss_object_from_type = %LossType.NORM
+            NormLossObject.regularization_strength = 1.0
+            NormLossObject.order = 2
+            NormLossObject.margin = 1.0
         """
         gin.parse_config(gin_config)
-        loss_object = LossObject()
+        loss_object = NormLossObject()
         losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertAllClose([5., 10.], losses)
 
-    def test_norm_metric_norm_order_undefined(self):
-        loss_object = LossObject(OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_margin=1.0)
-        with self.assertRaises(ValueError) as error:
-            loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
-        self.assertIn('norm_metric_order has to be defined when norm metric is used', str(error.exception))
-
-    def test_norm_metric_norm_metric_margin_undefined(self):
-        loss_object = LossObject(OptimizedMetric.NORM, regularization_strength=1.0, norm_metric_order=2)
-        with self.assertRaises(ValueError) as error:
-            loss_object.get_mean_loss_of_pairs(self.default_norm_inputs, self.default_norm_inputs)
-        self.assertIn('norm_metric_margin has to be defined when norm metric is used', str(error.exception))
-
     def test_softplus_metric_invalid_shape(self):
-        loss_object = LossObject(OptimizedMetric.SOFTPLUS, regularization_strength=1.0)
+        loss_object = SoftplusLossObject(regularization_strength=1.0)
         with self.assertRaises(ValueError) as error:
             loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertIn('incompatible with embeddings of shape greater than 1', str(error.exception))
@@ -92,12 +72,13 @@ class TestTranseModel(tf.test.TestCase):
         pretrained_entity_embeddings = tf.ones(shape=(3, 4))
         pretrained_relation_embeddings = 2 * tf.ones(shape=(2, 4))
         embeddings_config = EmbeddingsConfig(
-            entities_count=3, relations_count=2, pretrained_entity_embeddings=pretrained_entity_embeddings,
+            entities_count=3, relations_count=2, embeddings_dimension=4,
+            pretrained_entity_embeddings=pretrained_entity_embeddings,
             pretrained_relation_embeddings=pretrained_relation_embeddings
         )
-        model_config = ConvModelConfig(embeddings_dimension=4, include_reduce_dim_layer=False)
+        model_config = ConvModelConfig(include_reduce_dim_layer=False)
         transe_model = TranseModel(embeddings_config, model_config)
-        loss_object = LossObject(OptimizedMetric.SOFTPLUS, regularization_strength=0.1)
+        loss_object = SoftplusLossObject(regularization_strength=0.1)
         self.assertAllClose(0.28, loss_object.get_regularization_loss(transe_model))
 
 

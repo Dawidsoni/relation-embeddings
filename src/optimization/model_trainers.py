@@ -1,14 +1,34 @@
+from abc import abstractmethod
 import tensorflow as tf
+
+from models.knowledge_completion_model import KnowledgeCompletionModel
+from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
+
+
+LearningRateSchedule = tf.keras.optimizers.schedules.LearningRateSchedule
 
 
 class ModelTrainer(object):
 
-    def __init__(self, model, loss_object, learning_rate_schedule):
+    @abstractmethod
+    def train_step(self, training_samples: tf.Tensor, training_step: int):
+        pass
+
+
+class SamplingModelTrainer(ModelTrainer):
+
+    def __init__(
+        self,
+        model: KnowledgeCompletionModel,
+        loss_object: SamplingLossObject,
+        learning_rate_schedule: LearningRateSchedule
+    ):
         self.model = model
         self.loss_object = loss_object
         self.optimizer = tf.keras.optimizers.Adam(learning_rate_schedule)
 
-    def train_step(self, positive_inputs, negative_inputs, training_step):
+    def train_step(self, training_samples: tf.Tensor, training_step: int):
+        positive_inputs, negative_inputs = training_samples
         with tf.GradientTape() as gradient_tape:
             positive_outputs = self.model(positive_inputs, training=True)
             negative_outputs = self.model(negative_inputs, training=True)
@@ -17,3 +37,19 @@ class ModelTrainer(object):
         trainable_variables = self.model.get_trainable_variables_at_training_step(training_step)
         gradients = gradient_tape.gradient(loss_value, trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, trainable_variables))
+
+
+class SupervisedModelTrainer(ModelTrainer):
+
+    def __init__(
+        self,
+        model: KnowledgeCompletionModel,
+        loss_object: SupervisedLossObject,
+        learning_rate_schedule: LearningRateSchedule
+    ):
+        self.model = model
+        self.loss_object = loss_object
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate_schedule)
+
+    def train_step(self, training_samples: tf.Tensor, training_step: int):
+        pass  # TODO: implement this method

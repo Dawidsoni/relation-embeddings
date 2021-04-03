@@ -19,18 +19,21 @@ class ObjectType(enum.Enum):
     MASK = 2
 
 
-class RawDataset(object):
+class Dataset(object):
     ENTITIES_IDS_FILENAME = 'entity2id.txt'
     RELATIONS_IDS_FILENAME = 'relation2id.txt'
     TRAINING_DATASET_FILENAME = "train.txt"
     VALIDATION_DATASET_FILENAME = "valid.txt"
     TEST_DATASET_FILENAME = "test.txt"
 
-    def __init__(self, dataset_type, data_directory, batch_size, repeat_samples):
+    def __init__(
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
+    ):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
         self.repeat_samples = repeat_samples
+        self.shuffle_dataset = shuffle_dataset
         entities_df = pd.read_table(os.path.join(data_directory, self.ENTITIES_IDS_FILENAME), header=None)
         relations_df = pd.read_table(os.path.join(data_directory, self.RELATIONS_IDS_FILENAME), header=None)
         graph_df = pd.read_table(os.path.join(data_directory, self._get_graph_edges_filename()), header=None)
@@ -47,15 +50,16 @@ class RawDataset(object):
 
     def _get_graph_edges_filename(self):
         if self.dataset_type == DatasetType.TRAINING:
-            return RawDataset.TRAINING_DATASET_FILENAME
+            return Dataset.TRAINING_DATASET_FILENAME
         elif self.dataset_type == DatasetType.VALIDATION:
-            return RawDataset.VALIDATION_DATASET_FILENAME
+            return Dataset.VALIDATION_DATASET_FILENAME
         elif self.dataset_type == DatasetType.TEST:
-            return RawDataset.TEST_DATASET_FILENAME
+            return Dataset.TEST_DATASET_FILENAME
         else:
             raise ValueError(f"Expected an instance of DatasetType, got {self.dataset_type}")
 
     def _get_processed_dataset(self, dataset):
+        dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
         dataset = dataset.batch(self.batch_size) if self.batch_size is not None else dataset
         dataset = dataset.repeat() if self.repeat_samples else dataset
         return dataset.prefetch(100)
@@ -67,10 +71,7 @@ class RawDataset(object):
 
 
 @gin.configurable
-class SamplingDataset(RawDataset):
-
-    def __init__(self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False):
-        super(SamplingDataset, self).__init__(dataset_type, data_directory, batch_size, repeat_samples)
+class SamplingDataset(Dataset):
 
     @staticmethod
     def _get_integer_random_variables_iterator(low, high, batch_size):
@@ -125,8 +126,49 @@ class SamplingDataset(RawDataset):
 
 
 @gin.configurable
-class MaskedDataset(RawDataset):
+class MaskedDataset(Dataset):
 
-    def __init__(self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False):
-        super(MaskedDataset, self).__init__(dataset_type, data_directory, batch_size, repeat_samples)
-        #  TODO: implement this dataset type
+    def _get_head_edges_dataset(self):
+        input_objects_ids, outputs = [], []
+        for edge in self.graph_edges:
+            head_edge = list(edge).copy()
+            outputs.append(head_edge[0])
+            head_edge[0] = 0
+            input_objects_ids.append(tuple(head_edge))
+        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
+        object_types_dataset = tf.data.Dataset.from_tensor_slices([[
+            ObjectType.MASK.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
+        ]]).repeat()
+        inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
+        outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
+        return tf.data.Dataset.zip((
+            self._get_processed_dataset(inputs_dataset),
+            self._get_processed_dataset(outputs_dataset),
+        ))
+
+    def _get_tail_edges_dataset(self):
+        input_objects_ids, outputs = [], []
+        for edge in self.graph_edges:
+            tail_edge = list(edge).copy()
+            outputs.append(tail_edge[2])
+            tail_edge[2] = 0
+            input_objects_ids.append(tuple(tail_edge))
+        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
+        object_types_dataset = tf.data.Dataset.from_tensor_slices([[
+            ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.MASK.value
+        ]]).repeat()
+        inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
+        outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
+        return tf.data.Dataset.zip((
+            self._get_processed_dataset(inputs_dataset),
+            self._get_processed_dataset(outputs_dataset),
+        ))
+
+    @property
+    def samples(self):
+        head_samples = self._get_head_edges_dataset()
+        tail_samples = self._get_tail_edges_dataset()
+        merged_samples = head_samples.concatenate(tail_samples)
+        if self.shuffle_dataset:
+            merged_samples = merged_samples.shuffle(buffer_size=10_000)
+        return merged_samples

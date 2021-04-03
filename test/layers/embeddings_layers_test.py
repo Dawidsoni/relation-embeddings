@@ -54,7 +54,7 @@ class TestEmbeddingsLayers(tf.test.TestCase):
 
     def test_embeddings_extraction_layer_outputs(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4,
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=True
         ))
         inputs = np.array((
             [[1, 0], [2, 0]],
@@ -72,7 +72,6 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         ))
         self.assertTrue(layer.entity_embeddings.trainable)
         self.assertTrue(layer.relation_embeddings.trainable)
-        self.assertTrue(layer.mask_embeddings.trainable)
 
     def test_embeddings_extraction_layer_non_trainable(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
@@ -80,7 +79,6 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         ))
         self.assertFalse(layer.entity_embeddings.trainable)
         self.assertFalse(layer.relation_embeddings.trainable)
-        self.assertFalse(layer.mask_embeddings.trainable)
 
     def test_embeddings_extraction_layer_pretrained_entity_embeddings(self):
         initial_values = np.array([[2.0, 3.0, 1.0], [3.0, 4.0, 5.0], [2.0, 5.0, 1.0]])
@@ -99,13 +97,15 @@ class TestEmbeddingsLayers(tf.test.TestCase):
     def test_embeddings_extraction_layer_pretrained_mask_embeddings(self):
         initial_values = np.array([[2.0, 3.0, 1.0]])
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, pretrained_mask_embeddings=initial_values
+            entities_count=3, relations_count=2, embeddings_dimension=4,
+            use_mask_embeddings=True, pretrained_mask_embeddings=initial_values
         ))
         self.assertAllEqual(initial_values, layer.mask_embeddings)
 
     def test_embeddings_extraction_layer_use_position_embeddings(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, use_position_embeddings=True,
+            entities_count=3, relations_count=2, embeddings_dimension=4,
+            use_mask_embeddings=True, use_position_embeddings=True,
         ))
         inputs = np.array((
             [[1, 0], [2, 0]],
@@ -117,6 +117,18 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         self.assertAllEqual(layer.entity_embeddings[0] + position_embeddings[1], outputs[0, 1])
         self.assertAllEqual(layer.entity_embeddings[2] + position_embeddings[0], outputs[1, 0])
         self.assertAllEqual(layer.mask_embeddings[0] + position_embeddings[1], outputs[1, 1])
+
+    def test_embeddings_extraction_layer_mask_embeddings_used(self):
+        layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=True
+        ))
+        self.assertEqual((1, 4), layer.mask_embeddings.shape)
+
+    def test_embeddings_extraction_layer_mask_embeddings_not_used(self):
+        layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=False
+        ))
+        self.assertEqual((0, 4), layer.mask_embeddings.shape)
 
     def test_embeddings_extraction_layer_position_embeddings_trainable(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(

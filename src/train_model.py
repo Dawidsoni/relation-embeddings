@@ -10,9 +10,9 @@ from enum import Enum
 
 from optimization.datasets import SamplingDataset
 from optimization.edges_producer import EdgesProducer
-from optimization.losses import LossObject
+from optimization.loss_objects import LossObject
 from optimization.model_trainers import ModelTrainer
-from optimization.model_evaluator import ModelEvaluator
+from optimization.model_evaluators import ModelEvaluator
 from models.conv_base_model import EmbeddingsConfig
 from models.transe_model import TranseModel
 from models.s_transe_model import STranseModel

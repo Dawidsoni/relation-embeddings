@@ -14,6 +14,7 @@ class EmbeddingsConfig(object):
     relations_count: int
     embeddings_dimension: int
     trainable_embeddings: bool = True
+    use_mask_embeddings: bool = False
     pretrained_entity_embeddings: Optional[np.ndarray] = None
     pretrained_relation_embeddings: Optional[np.ndarray] = None
     pretrained_position_embeddings: Optional[np.ndarray] = None
@@ -112,11 +113,17 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
         )
 
     def _create_mask_embeddings_variable(self):
+        if not self.config.use_mask_embeddings:
+            return tf.Variable(
+                np.zeros(shape=(0, self.config.embeddings_dimension), dtype=np.int32),
+                name="mask_embeddings",
+                trainable=False,
+            )
         masks_shape = [1, self.config.embeddings_dimension]
         return tf.Variable(
             self._get_initial_embedding_values(masks_shape, self.config.pretrained_mask_embeddings),
             name='mask_embeddings',
-            trainable=self.config.trainable_embeddings
+            trainable=self.config.trainable_embeddings,
         )
 
     def _extract_object_embeddings(self, object_ids, object_types):
