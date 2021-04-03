@@ -21,9 +21,7 @@ class TestModelTrainer(tf.test.TestCase):
             pretrained_relation_embeddings=pretrained_relation_embeddings
         )
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
-        loss_object = NormLossObject(
-            regularization_strength=0.1, metric_order=2, metric_margin=1.0
-        )
+        loss_object = NormLossObject(regularization_strength=0.1, order=2, margin=1.0)
         learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=1e-3, decay_steps=1, decay_rate=0.5
         )
@@ -32,14 +30,15 @@ class TestModelTrainer(tf.test.TestCase):
         dataset = SamplingDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=2, repeat_samples=True
         )
-        pairs_of_samples_iterator = iter(dataset.pairs_of_samples)
-        model_trainer.train_step(training_samples=next(pairs_of_samples_iterator), training_step=1)
-        model_trainer.train_step(training_samples=next(pairs_of_samples_iterator), training_step=2)
+        samples_iterator = iter(dataset.samples)
+        model_trainer.train_step(training_samples=next(samples_iterator), training_step=1)
+        model_trainer.train_step(training_samples=next(samples_iterator), training_step=2)
         self.assertEqual(2, model_trainer.optimizer.iterations)
         expected_kernel = np.array([[[[1.0]], [[1.0]], [[-1.0]]]])
         self.assertAllEqual(expected_kernel, transe_model.conv_layers[0].kernel.numpy())
-        self.assertGreater(np.sum(pretrained_entity_embeddings != transe_model.entity_embeddings), 0)
-        self.assertGreater(np.sum(pretrained_relation_embeddings != transe_model.relation_embeddings), 0)
+        embeddings_layer = transe_model.embeddings_layer
+        self.assertGreater(np.sum(pretrained_entity_embeddings != embeddings_layer.entity_embeddings), 0)
+        self.assertGreater(np.sum(pretrained_relation_embeddings != embeddings_layer.relation_embeddings), 0)
 
 
 if __name__ == '__main__':

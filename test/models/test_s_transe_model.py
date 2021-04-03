@@ -79,7 +79,7 @@ class STestTranseModel(tf.test.TestCase):
         )
         model = STranseModel(self.embeddings_config, self.model_config, embeddings_transform_config)
         trainable_variables = model.get_trainable_variables_at_training_step(training_step=1)
-        self.assertLen(trainable_variables, expected_len=3)
+        self.assertLen(trainable_variables, expected_len=2)
 
     def test_training_step_equal_transformations_min_iteration(self):
         embeddings_transform_config = EmbeddingsTransformConfig(
@@ -88,7 +88,7 @@ class STestTranseModel(tf.test.TestCase):
         )
         model = STranseModel(self.embeddings_config, self.model_config, embeddings_transform_config)
         trainable_variables = model.get_trainable_variables_at_training_step(training_step=2)
-        self.assertLen(trainable_variables, expected_len=5)
+        self.assertLen(trainable_variables, expected_len=4)
 
 
 if __name__ == '__main__':

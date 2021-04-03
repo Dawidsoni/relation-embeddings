@@ -72,7 +72,7 @@ class SupervisedLossObject(LossObject):
 
     @abstractmethod
     def get_mean_loss_of_samples(self, true_labels, soft_predictions):
-        pass
+        pass  # TODO: implement this method
 
 
 @gin.constants_from_enum

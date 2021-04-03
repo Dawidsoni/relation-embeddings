@@ -115,7 +115,7 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
     def _create_mask_embeddings_variable(self):
         if not self.config.use_mask_embeddings:
             return tf.Variable(
-                np.zeros(shape=(0, self.config.embeddings_dimension), dtype=np.int32),
+                np.zeros(shape=(0, self.config.embeddings_dimension), dtype=np.float32),
                 name="mask_embeddings",
                 trainable=False,
             )
