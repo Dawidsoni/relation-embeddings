@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Optional, List, Tuple, Iterator, Union
 import tensorflow as tf
 
@@ -38,6 +39,14 @@ class ModelEvaluator(object):
             return
         learning_rate = self.learning_rate_scheduler(step)
         tf.summary.scalar(name="optimizer/learning_rate", data=learning_rate, step=step)
+
+    @abstractmethod
+    def evaluation_step(self, step):
+        pass
+
+    @abstractmethod
+    def log_metrics(self, logger):
+        pass
 
 
 class SamplingModelEvaluator(ModelEvaluator):
@@ -115,8 +124,14 @@ class SamplingModelEvaluator(ModelEvaluator):
             self._compute_and_report_model_outputs(positive_samples, negative_samples, step)
             self._maybe_report_learning_rate(step)
 
+    def log_metrics(self, logger):
+        pass  # TODO: implement this method
+
 
 class SupervisedModelEvaluator(ModelEvaluator):
 
     def evaluation_step(self, step):
+        pass  # TODO: implement this method
+
+    def log_metrics(self, logger):
         pass  # TODO: implement this method

@@ -12,7 +12,7 @@ from optimization.datasets import ObjectType
 class EmbeddingsConfig(object):
     entities_count: int
     relations_count: int
-    embeddings_dimension: int
+    embeddings_dimension: int = gin.REQUIRED
     trainable_embeddings: bool = True
     use_mask_embeddings: bool = False
     pretrained_entity_embeddings: Optional[np.ndarray] = None

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-from enum import Enum
 import tensorflow as tf
 import gin.tf
 
@@ -73,19 +72,3 @@ class SupervisedLossObject(LossObject):
     @abstractmethod
     def get_mean_loss_of_samples(self, true_labels, soft_predictions):
         pass  # TODO: implement this method
-
-
-@gin.constants_from_enum
-class LossType(Enum):
-    NORM = 1
-    SOFTPLUS = 2
-
-
-@gin.configurable
-def create_loss_object_from_type(loss_type: LossType):
-    if loss_type == LossType.NORM:
-        return NormLossObject()
-    elif loss_type == LossType.SOFTPLUS:
-        return SoftplusLossObject()
-    else:
-        raise ValueError(f"Invalid loss type: {loss_type}")

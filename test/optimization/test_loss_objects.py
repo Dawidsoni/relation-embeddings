@@ -50,18 +50,6 @@ class TestLossObjects(tf.test.TestCase):
         )
         self.assertAllClose(0.668878, loss)
 
-    def test_gin_config(self):
-        gin_config = """
-            create_loss_object_from_type = %LossType.NORM
-            NormLossObject.regularization_strength = 1.0
-            NormLossObject.order = 2
-            NormLossObject.margin = 1.0
-        """
-        gin.parse_config(gin_config)
-        loss_object = NormLossObject()
-        losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
-        self.assertAllClose([5., 10.], losses)
-
     def test_softplus_metric_invalid_shape(self):
         loss_object = SoftplusLossObject(regularization_strength=1.0)
         with self.assertRaises(ValueError) as error:

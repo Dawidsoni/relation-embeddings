@@ -13,7 +13,9 @@ class TestModelEvaluators(tf.test.TestCase):
     DATASET_PATH = '../../data/test_data'
 
     @mock.patch.object(tf.summary, "scalar")
-    def test_sampling_model_evaluator(self, summary_scalar_patch):
+    @mock.patch.object(tf.summary, "histogram")
+    @mock.patch.object(tf.summary, "create_file_writer")
+    def test_sampling_model_evaluator(self, file_writer_mock, summary_scalar_histogram, summary_scalar_patch):
         embeddings_config = EmbeddingsConfig(entities_count=3, relations_count=2, embeddings_dimension=4)
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
         transe_model = TranseModel(embeddings_config, model_config)
@@ -30,6 +32,8 @@ class TestModelEvaluators(tf.test.TestCase):
         )
         model_evaluator.evaluation_step(step=0)
         model_evaluator.evaluation_step(step=1)
+        file_writer_mock.assert_called_once()
+        self.assertEqual(8, summary_scalar_histogram.call_count)
         self.assertEqual(26, summary_scalar_patch.call_count)
 
 
