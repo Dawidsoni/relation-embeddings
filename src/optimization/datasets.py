@@ -19,6 +19,7 @@ class ObjectType(enum.Enum):
     MASK = 2
 
 
+@gin.configurable
 class Dataset(object):
     ENTITIES_IDS_FILENAME = 'entity2id.txt'
     RELATIONS_IDS_FILENAME = 'relation2id.txt'

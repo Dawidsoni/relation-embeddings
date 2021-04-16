@@ -125,6 +125,7 @@ class SamplingModelEvaluator(ModelEvaluator):
             self._maybe_report_learning_rate(step)
 
     def log_metrics(self, logger):
+        print("TODO")
         pass  # TODO: implement this method
 
 

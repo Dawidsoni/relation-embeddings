@@ -168,7 +168,7 @@ def _create_embeddings_config(
     )
 
 
-@gin.configurable
+@gin.configurable(blacklist=['tensorboard_folder'])
 def create_knowledge_base_state(
     tensorboard_folder: str,
     model_type: ModelType = gin.REQUIRED,

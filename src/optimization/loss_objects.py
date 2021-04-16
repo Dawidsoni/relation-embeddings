@@ -4,6 +4,7 @@ import tensorflow as tf
 import gin.tf
 
 
+@gin.configurable
 class LossObject(ABC):
 
     def __init__(self, regularization_strength: float = gin.REQUIRED):
