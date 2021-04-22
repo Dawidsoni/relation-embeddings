@@ -19,7 +19,6 @@ class ObjectType(enum.Enum):
     MASK = 2
 
 
-@gin.configurable
 class Dataset(object):
     ENTITIES_IDS_FILENAME = 'entity2id.txt'
     RELATIONS_IDS_FILENAME = 'relation2id.txt'
@@ -27,9 +26,7 @@ class Dataset(object):
     VALIDATION_DATASET_FILENAME = "valid.txt"
     TEST_DATASET_FILENAME = "test.txt"
 
-    def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
-    ):
+    def __init__(self, dataset_type, data_directory, batch_size, repeat_samples=False, shuffle_dataset=False):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
@@ -73,6 +70,13 @@ class Dataset(object):
 
 @gin.configurable
 class SamplingDataset(Dataset):
+
+    def __init__(
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
+    ):
+        super(SamplingDataset, self).__init__(
+            dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
+        )
 
     @staticmethod
     def _get_integer_random_variables_iterator(low, high, batch_size):

@@ -6,5 +6,5 @@ python3 ../src/train_model.py \
     "_create_learning_rate_schedule.decay_steps = 3500" \
     "_create_learning_rate_schedule.decay_rate = 0.1" \
     "ExperimentConfig.steps_per_evaluation = 50" \
-    "Dataset.batch_size = 3000" \
+    "SamplingDataset.batch_size = 3000" \
     "ExperimentConfig.experiment_name = 'transe_wn18rr_exp_decay_0_01'"

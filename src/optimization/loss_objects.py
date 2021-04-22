@@ -30,10 +30,8 @@ class SamplingLossObject(LossObject):
 @gin.configurable
 class NormLossObject(SamplingLossObject):
 
-    def __init__(
-        self, regularization_strength: float = gin.REQUIRED, order: int = gin.REQUIRED, margin: float = gin.REQUIRED
-    ):
-        super(NormLossObject, self).__init__(regularization_strength)
+    def __init__(self, order: int = gin.REQUIRED, margin: float = gin.REQUIRED):
+        super(NormLossObject, self).__init__()
         self.order = order
         self.margin = margin
 
@@ -49,10 +47,6 @@ class NormLossObject(SamplingLossObject):
 @gin.configurable
 class SoftplusLossObject(SamplingLossObject):
 
-    def __init__(self, regularization_strength: float = gin.REQUIRED):
-        super(SoftplusLossObject, self).__init__(regularization_strength)
-        self.regularization_strength = regularization_strength
-
     def get_losses_of_positive_samples(self, samples):
         if samples.shape[1] != 1:
             raise ValueError('Softplus metric is incompatible with embeddings of shape greater than 1')
@@ -65,10 +59,6 @@ class SoftplusLossObject(SamplingLossObject):
 
 
 class SupervisedLossObject(LossObject):
-
-    def __init__(self, regularization_strength: float = gin.REQUIRED):
-        super(SupervisedLossObject, self).__init__(regularization_strength)
-        self.regularization_strength = regularization_strength
 
     @abstractmethod
     def get_mean_loss_of_samples(self, true_labels, soft_predictions):

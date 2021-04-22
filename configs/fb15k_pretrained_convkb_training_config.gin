@@ -1,7 +1,7 @@
 # Dataset
 
-Dataset.data_directory = "../data/FB15k-237"
-Dataset.batch_size = 256
+SamplingDataset.data_directory = "../data/FB15k-237"
+SamplingDataset.batch_size = 256
 
 
 # LossObject

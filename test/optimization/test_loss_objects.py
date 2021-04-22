@@ -13,14 +13,17 @@ class TestLossObjects(tf.test.TestCase):
         self.default_norm_inputs = np.array([[3.0, 4.0], [6.0, 8.0]])
         self.default_softplus_inputs = np.array([[2.0], [3.0]])
         gin.clear_config()
+        gin.parse_config("""
+            LossObject.regularization_strength = 0.1
+        """)
 
     def test_norm_metric_outputs(self):
-        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=1.0)
+        loss_object = NormLossObject(order=2, margin=1.0)
         losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertAllClose([5., 10.], losses)
 
     def test_norm_metric_order(self):
-        loss_object = NormLossObject(regularization_strength=1.0, order=1, margin=1.0)
+        loss_object = NormLossObject(order=1, margin=1.0)
         losses = loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertAllClose([7., 14.], losses)
 
@@ -30,28 +33,28 @@ class TestLossObjects(tf.test.TestCase):
         self.assertAllClose([2.126928, 3.048587], losses)
 
     def test_mean_loss_pairs_norm_metric(self):
-        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=1.0)
+        loss_object = NormLossObject(order=2, margin=1.0)
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_norm_inputs, negative_samples=self.default_norm_inputs[[1, 0]]
         )
         self.assertAllClose(3.0, loss)
 
     def test_mean_loss_pairs_norm_metric_margin(self):
-        loss_object = NormLossObject(regularization_strength=1.0, order=2, margin=3.0)
+        loss_object = NormLossObject(order=2, margin=3.0)
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_norm_inputs, negative_samples=self.default_norm_inputs[[1, 0]]
         )
         self.assertAllClose(4.0, loss)
 
     def test_mean_loss_pairs_softplus_metric(self):
-        loss_object = SoftplusLossObject(regularization_strength=1.0)
+        loss_object = SoftplusLossObject()
         loss = loss_object.get_mean_loss_of_pairs(
             positive_samples=self.default_softplus_inputs, negative_samples=self.default_softplus_inputs[[1, 0]]
         )
         self.assertAllClose(0.668878, loss)
 
     def test_softplus_metric_invalid_shape(self):
-        loss_object = SoftplusLossObject(regularization_strength=1.0)
+        loss_object = SoftplusLossObject()
         with self.assertRaises(ValueError) as error:
             loss_object.get_losses_of_positive_samples(self.default_norm_inputs)
         self.assertIn('incompatible with embeddings of shape greater than 1', str(error.exception))

@@ -23,9 +23,16 @@ class ModelEvaluator(object):
     ):
         self.model = model
         self.loss_object = loss_object
-        self.summary_writer = tf.summary.create_file_writer(output_directory)
+        self.output_directory = output_directory
+        self._summary_writer = None
         self.iterator_of_samples = iterator_of_samples
         self.learning_rate_scheduler = learning_rate_scheduler
+
+    @property
+    def summary_writer(self):
+        if self._summary_writer is None:
+            self._summary_writer = tf.summary.create_file_writer(self.output_directory)
+        return self._summary_writer
 
     @staticmethod
     def _report_computed_evaluation_metrics(evaluation_metrics, step, metrics_prefix):
@@ -125,8 +132,13 @@ class SamplingModelEvaluator(ModelEvaluator):
             self._maybe_report_learning_rate(step)
 
     def log_metrics(self, logger):
-        print("TODO")
-        pass  # TODO: implement this method
+        named_metrics = self._compute_metrics_on_samples(self.iterator_of_samples)
+        for name_prefix, metrics in named_metrics.items():
+            mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
+            logger.info(f"Evaluating a model on test dataset: {name_prefix}/mean_rank: {mean_rank}")
+            logger.info(
+                f"Evaluating a model on test dataset: {name_prefix}/mean_reciprocal_rank: {mean_reciprocal_rank}")
+            logger.info(f"Evaluating a model on test dataset: {name_prefix}/hits10: {hits10}")
 
 
 class SupervisedModelEvaluator(ModelEvaluator):

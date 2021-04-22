@@ -44,47 +44,48 @@ class ModelType(Enum):
 
 def _create_loss_object(loss_type: LossType):
     type_mappings = {
-        LossType.NORM: NormLossObject(),
-        LossType.SOFTPLUS: SoftplusLossObject(),
+        LossType.NORM: lambda: NormLossObject(),
+        LossType.SOFTPLUS: lambda: SoftplusLossObject(),
     }
     if loss_type not in type_mappings:
         raise ValueError(f"Invalid loss type: {loss_type}")
-    return type_mappings[loss_type]
+    return type_mappings[loss_type]()
 
 
 def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
     type_mappings = {
-        ModelType.TRANSE: TranseModel(embeddings_config),
-        ModelType.STRANSE: STranseModel(embeddings_config),
-        ModelType.CONVKB: ConvKBModel(embeddings_config),
+        ModelType.TRANSE: lambda: TranseModel(embeddings_config),
+        ModelType.STRANSE: lambda: STranseModel(embeddings_config),
+        ModelType.CONVKB: lambda: ConvKBModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
-    return type_mappings[model_type]
+    return type_mappings[model_type]()
 
 
-def _create_dataset(dataset_type, batch_size, repeat_samples, shuffle_dataset, model_type: ModelType):
+def _create_dataset(dataset_type, model_type: ModelType, batch_size=None, repeat_samples=False, shuffle_dataset=False):
     sampling_dataset_initializer = functools.partial(
         SamplingDataset,
         dataset_type=dataset_type,
+        data_directory=gin.REQUIRED,
         batch_size=batch_size,
         repeat_samples=repeat_samples,
         shuffle_dataset=shuffle_dataset,
     )
     type_mappings = {
-        ModelType.TRANSE: sampling_dataset_initializer(),
-        ModelType.STRANSE: sampling_dataset_initializer(),
-        ModelType.CONVKB: sampling_dataset_initializer(),
+        ModelType.TRANSE: lambda: sampling_dataset_initializer(),
+        ModelType.STRANSE: lambda: sampling_dataset_initializer(),
+        ModelType.CONVKB: lambda: sampling_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
-    return type_mappings[model_type]
+    return type_mappings[model_type]()
 
 
-def _get_existing_graph_edges():
-    training_dataset = Dataset(dataset_type=DatasetType.TRAINING)
-    validation_dataset = Dataset(dataset_type=DatasetType.VALIDATION)
-    test_dataset = Dataset(dataset_type=DatasetType.TEST)
+def _get_existing_graph_edges(model_type: ModelType):
+    training_dataset = _create_dataset(DatasetType.TRAINING, model_type)
+    validation_dataset = _create_dataset(DatasetType.VALIDATION, model_type)
+    test_dataset = _create_dataset(DatasetType.TEST, model_type)
     return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
 
 
@@ -96,17 +97,17 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         learning_rate_schedule=learning_rate_schedule,
     )
     type_mappings = {
-        ModelType.TRANSE: sampling_trainer_initializer(),
-        ModelType.STRANSE: sampling_trainer_initializer(),
-        ModelType.CONVKB: sampling_trainer_initializer(),
+        ModelType.TRANSE: lambda: sampling_trainer_initializer(),
+        ModelType.STRANSE: lambda: sampling_trainer_initializer(),
+        ModelType.CONVKB: lambda: sampling_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
-    return type_mappings[model_type]
+    return type_mappings[model_type]()
 
 
 def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, loss_object, learning_rate_scheduler):
-    existing_graph_edges = _get_existing_graph_edges()
+    existing_graph_edges = _get_existing_graph_edges(model_type)
     unbatched_dataset = _create_dataset(
         dataset_type, batch_size=None, repeat_samples=True, shuffle_dataset=True, model_type=model_type
     )
@@ -120,13 +121,13 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
         learning_rate_scheduler=learning_rate_scheduler,
     )
     type_mappings = {
-        ModelType.TRANSE: sampling_evaluator_initializer(),
-        ModelType.STRANSE: sampling_evaluator_initializer(),
-        ModelType.CONVKB: sampling_evaluator_initializer(),
+        ModelType.TRANSE: lambda: sampling_evaluator_initializer(),
+        ModelType.STRANSE: lambda: sampling_evaluator_initializer(),
+        ModelType.CONVKB: lambda: sampling_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
-    return type_mappings[model_type]
+    return type_mappings[model_type]()
 
 
 @gin.configurable
@@ -138,14 +139,15 @@ def _create_learning_rate_schedule(
     )
 
 
-@gin.configurable
+@gin.configurable(blacklist=["model_type"])
 def _create_embeddings_config(
+    model_type: ModelType,
     entity_embeddings_path=gin.REQUIRED,
     relation_embeddings_path=gin.REQUIRED,
     position_embeddings_path=gin.REQUIRED,
     mask_embeddings_path=gin.REQUIRED,
 ):
-    dataset = Dataset(dataset_type=DatasetType.TRAINING)
+    dataset = _create_dataset(DatasetType.TRAINING, model_type)
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
     )
@@ -174,7 +176,7 @@ def create_knowledge_base_state(
     model_type: ModelType = gin.REQUIRED,
     loss_type: LossType = gin.REQUIRED,
 ):
-    embeddings_config = _create_embeddings_config()
+    embeddings_config = _create_embeddings_config(model_type)
     learning_rate_scheduler = _create_learning_rate_schedule()
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)
