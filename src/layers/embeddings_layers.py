@@ -67,12 +67,13 @@ class PositionEmbeddingsLayer(tf.keras.layers.Layer):
             initial_embeddings,
             name='position_embeddings',
             trainable=self.trainable,
+            dtype=tf.float32,
         )
 
     def call(self, inputs, training=None):
         inputs_length = tf.shape(inputs)[-2]
         chosen_embeddings = self.position_embeddings[:inputs_length, :]
-        return tf.broadcast_to(chosen_embeddings, inputs.shape)
+        return tf.broadcast_to(chosen_embeddings, tf.shape(inputs))
 
 
 class EmbeddingsExtractionLayer(tf.keras.layers.Layer):

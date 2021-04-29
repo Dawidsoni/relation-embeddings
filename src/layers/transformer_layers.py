@@ -68,6 +68,7 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         return self.layer_norm2(attention_outputs + pointwise_outputs)
 
 
+@gin.configurable
 class StackedTransformerEncodersLayer(tf.keras.layers.Layer):
 
     def __init__(

@@ -44,9 +44,8 @@ class ConvBaseModel(KnowledgeCompletionModel):
             return dropout_output
         return self.reduce_layer(dropout_output)
 
-    def call(self, inputs, training=None, **kwargs):
-        extracted_embeddings = self.embeddings_layer(inputs)
-        head_entity_embeddings, relation_embeddings, tail_entity_embeddings = tf.unstack(extracted_embeddings, axis=1)
+    def _transform_and_rate_embeddings(self, embeddings, training=None):
+        head_entity_embeddings, relation_embeddings, tail_entity_embeddings = tf.unstack(embeddings, axis=1)
         if self.normalize_embeddings:
             head_entity_embeddings = tf.math.l2_normalize(head_entity_embeddings, axis=1)
             relation_embeddings = tf.math.l2_normalize(relation_embeddings, axis=1)
@@ -57,3 +56,6 @@ class ConvBaseModel(KnowledgeCompletionModel):
             tf.expand_dims(tail_entity_embeddings, axis=2),
             training,
         )
+
+    def call(self, inputs, training=None, **kwargs):
+        return self._transform_and_rate_embeddings(self.embeddings_layer(inputs), training=training)

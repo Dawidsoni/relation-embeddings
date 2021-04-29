@@ -9,7 +9,7 @@ class TestEdgesProducer(tf.test.TestCase):
     DATASET_PATH = '../../data/test_data'
 
     def test_produce_head_edges(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH)
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
         edges_object_ids, edges_object_types = edges_producer.produce_head_edges(
             object_ids=np.array([1, 0, 1]), object_types=np.array([1, 0, 2]), target_pattern_index=0
@@ -18,7 +18,7 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertAllEqual([[1, 0, 2], [1, 0, 2]], edges_object_types)
 
     def test_produce_tail_edges(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH)
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
         edges_object_ids, edges_object_types = edges_producer.produce_tail_edges(
             object_ids=np.array([1, 1, 1]), object_types=np.array([1, 0, 2]), target_pattern_index=0
@@ -27,7 +27,7 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertAllEqual([[1, 0, 2], [1, 0, 2]], edges_object_types)
 
     def test_target_pattern_index(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH)
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
         edges_object_ids, edges_object_types = edges_producer.produce_head_edges(
             object_ids=np.array([1, 0, 1]), object_types=np.array([1, 0, 2]), target_pattern_index=1
@@ -36,7 +36,7 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertAllEqual([[1, 0, 2], [1, 0, 2]], edges_object_types)
 
     def test_edge_pattern_in_existing_edges(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH)
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
         edges_object_ids, unused_edges_object_types = edges_producer.produce_head_edges(
             object_ids=np.array([0, 0, 1]), object_types=np.array([1, 0, 2]), target_pattern_index=0

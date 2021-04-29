@@ -43,7 +43,7 @@ _create_learning_rate_schedule.decay_rate = 1.0
 # Training model
 
 ExperimentConfig.experiment_name = "transe_wn18rr_baseline"
-ExperimentConfig.training_steps = 100
+ExperimentConfig.training_steps = 5800
 ExperimentConfig.steps_per_evaluation = 50
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"

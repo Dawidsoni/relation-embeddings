@@ -1,9 +1,9 @@
 from abc import abstractmethod
-from typing import Optional, List, Tuple, Iterator, Union
+from typing import Optional, List, Tuple, Union
 import tensorflow as tf
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
-from optimization.datasets import SamplingDataset
+from optimization.datasets import SamplingDataset, Dataset
 from optimization.edges_producer import EdgesProducer
 from optimization.evaluation_metrics import EvaluationMetrics
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
@@ -17,15 +17,17 @@ class ModelEvaluator(object):
         self,
         model: KnowledgeCompletionModel,
         loss_object: Union[SamplingLossObject, SupervisedLossObject],
+        dataset: Dataset,
         output_directory: str,
-        iterator_of_samples: Iterator,
-        learning_rate_scheduler: Optional[LearningRateSchedule] = None,
+        learning_rate_scheduler: Optional[LearningRateSchedule],
+        samples_per_step: int,
     ):
         self.model = model
         self.loss_object = loss_object
+        self.dataset = dataset
+        self.iterator_of_samples = dataset.samples.repeat().batch(samples_per_step).as_numpy_iterator()
         self.output_directory = output_directory
         self._summary_writer = None
-        self.iterator_of_samples = iterator_of_samples
         self.learning_rate_scheduler = learning_rate_scheduler
 
     @property
@@ -71,16 +73,17 @@ class SamplingModelEvaluator(ModelEvaluator):
         super(SamplingModelEvaluator, self).__init__(
             model=model,
             loss_object=loss_object,
+            dataset=dataset,
             output_directory=output_directory,
-            iterator_of_samples=dataset.samples.batch(samples_per_step).as_numpy_iterator(),
             learning_rate_scheduler=learning_rate_scheduler,
+            samples_per_step=samples_per_step,
         )
         self.edges_producer = EdgesProducer(dataset.ids_of_entities, existing_graph_edges)
 
     def _compute_metrics_on_samples(self, samples, batch_size=10_000):
         head_metrics = EvaluationMetrics()
         tail_metrics = EvaluationMetrics()
-        for object_ids, object_types in zip(*samples):
+        for object_ids, object_types in samples:
             head_samples = self.edges_producer.produce_head_edges(object_ids, object_types, target_pattern_index=0)
             head_predictions = self.model.predict(head_samples, batch_size=batch_size)
             head_losses = self.loss_object.get_losses_of_positive_samples(head_predictions)
@@ -126,13 +129,16 @@ class SamplingModelEvaluator(ModelEvaluator):
     def evaluation_step(self, step):
         positive_samples, negative_samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
-            self._compute_and_report_metrics(positive_samples, step)
+            self._compute_and_report_metrics(zip(*positive_samples), step)
             self._compute_and_report_losses(positive_samples, negative_samples, step)
             self._compute_and_report_model_outputs(positive_samples, negative_samples, step)
             self._maybe_report_learning_rate(step)
 
     def log_metrics(self, logger):
-        named_metrics = self._compute_metrics_on_samples(self.iterator_of_samples)
+        positive_samples_iterator = self.dataset.samples.map(
+            lambda positive_samples, negative_samples: positive_samples
+        ).as_numpy_iterator()
+        named_metrics = self._compute_metrics_on_samples(positive_samples_iterator)
         for name_prefix, metrics in named_metrics.items():
             mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
             logger.info(f"Evaluating a model on test dataset: {name_prefix}/mean_rank: {mean_rank}")

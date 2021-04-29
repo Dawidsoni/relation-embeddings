@@ -128,6 +128,13 @@ class SamplingDataset(Dataset):
 @gin.configurable
 class MaskedDataset(Dataset):
 
+    def __init__(
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
+    ):
+        super(MaskedDataset, self).__init__(
+            dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
+        )
+
     def _get_head_edges_dataset(self):
         input_objects_ids, outputs = [], []
         for edge in self.graph_edges:

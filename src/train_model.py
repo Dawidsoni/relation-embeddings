@@ -59,14 +59,20 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
     training_step = 1
-    for training_samples in state.training_dataset.samples:
+    for training_samples in state.training_dataset.samples.take(experiment_config.training_steps):
         logger.info(f"Performing training step {training_step}")
-        state.model_trainer.train_step(training_samples, training_step)
+        loss_value = state.model_trainer.train_step(training_samples, training_step)
+        print(f"Loss value: {loss_value: .3f}")
+        #if (loss_value >= 4.0 and training_step) >= 450 or (loss_value >= 3.0 and training_step >= 2400):
+        #    logger.info(f"Finishing experiment due to high value of computed loss: {loss_value}")
+        #    return
         if training_step % experiment_config.steps_per_evaluation == 0:
             logger.info(f"Evaluating a model on training data")
             state.training_evaluator.evaluation_step(training_step)
             logger.info(f"Evaluating a model on validation data")
             state.validation_evaluator.evaluation_step(training_step)
+        if training_step == 1:
+            logger.info(f"Parameters count of a model: {state.model.count_params()}")
         training_step += 1
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)

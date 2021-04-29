@@ -12,6 +12,7 @@ from models.convkb_model import ConvKBModel
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
+from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingDataset, DatasetType
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject
 from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator
@@ -40,6 +41,7 @@ class ModelType(Enum):
     TRANSE = 1
     STRANSE = 2
     CONVKB = 3
+    TRANSFORMER_TRANSE = 4
 
 
 def _create_loss_object(loss_type: LossType):
@@ -57,6 +59,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSE: lambda: TranseModel(embeddings_config),
         ModelType.STRANSE: lambda: STranseModel(embeddings_config),
         ModelType.CONVKB: lambda: ConvKBModel(embeddings_config),
+        ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config)
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -76,6 +79,7 @@ def _create_dataset(dataset_type, model_type: ModelType, batch_size=None, repeat
         ModelType.TRANSE: lambda: sampling_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_dataset_initializer(),
         ModelType.CONVKB: lambda: sampling_dataset_initializer(),
+        ModelType.TRANSFORMER_TRANSE: lambda: sampling_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -100,6 +104,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.TRANSE: lambda: sampling_trainer_initializer(),
         ModelType.STRANSE: lambda: sampling_trainer_initializer(),
         ModelType.CONVKB: lambda: sampling_trainer_initializer(),
+        ModelType.TRANSFORMER_TRANSE: lambda: sampling_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -109,7 +114,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
 def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, loss_object, learning_rate_scheduler):
     existing_graph_edges = _get_existing_graph_edges(model_type)
     unbatched_dataset = _create_dataset(
-        dataset_type, batch_size=None, repeat_samples=True, shuffle_dataset=True, model_type=model_type
+        dataset_type, batch_size=None, repeat_samples=False, shuffle_dataset=True, model_type=model_type
     )
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
@@ -124,6 +129,7 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
         ModelType.TRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.STRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.CONVKB: lambda: sampling_evaluator_initializer(),
+        ModelType.TRANSFORMER_TRANSE: lambda: sampling_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
