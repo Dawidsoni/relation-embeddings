@@ -151,7 +151,7 @@ def _create_embeddings_config(
     entity_embeddings_path=gin.REQUIRED,
     relation_embeddings_path=gin.REQUIRED,
     position_embeddings_path=gin.REQUIRED,
-    mask_embeddings_path=gin.REQUIRED,
+    special_token_embeddings_path=gin.REQUIRED,
 ):
     dataset = _create_dataset(DatasetType.TRAINING, model_type)
     pretrained_entity_embeddings = (
@@ -163,8 +163,8 @@ def _create_embeddings_config(
     pretrained_position_embeddings = (
         np.load(position_embeddings_path) if position_embeddings_path is not None else None
     )
-    pretrained_mask_embeddings = (
-        np.load(mask_embeddings_path) if mask_embeddings_path is not None else None
+    pretrained_special_token_embeddings = (
+        np.load(special_token_embeddings_path) if special_token_embeddings_path is not None else None
     )
     return EmbeddingsConfig(
         entities_count=(max(dataset.ids_of_entities) + 1),
@@ -172,7 +172,7 @@ def _create_embeddings_config(
         pretrained_entity_embeddings=pretrained_entity_embeddings,
         pretrained_relation_embeddings=pretrained_relation_embeddings,
         pretrained_position_embeddings=pretrained_position_embeddings,
-        pretrained_mask_embeddings=pretrained_mask_embeddings,
+        pretrained_special_token_embeddings=pretrained_special_token_embeddings,
     )
 
 

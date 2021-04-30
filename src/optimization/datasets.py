@@ -6,17 +6,13 @@ import tensorflow as tf
 import gin.tf
 import pandas as pd
 
+from layers.embeddings_layers import ObjectType
+
 
 class DatasetType(enum.Enum):
     TRAINING = 0
     VALIDATION = 1
     TEST = 2
-
-
-class ObjectType(enum.Enum):
-    ENTITY = 0
-    RELATION = 1
-    MASK = 2
 
 
 class Dataset(object):
@@ -144,7 +140,7 @@ class MaskedDataset(Dataset):
             input_objects_ids.append(tuple(head_edge))
         input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
         object_types_dataset = tf.data.Dataset.from_tensor_slices([[
-            ObjectType.MASK.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
+            ObjectType.SPECIAL_TOKEN.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
         ]]).repeat()
         inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
         outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
@@ -162,7 +158,7 @@ class MaskedDataset(Dataset):
             input_objects_ids.append(tuple(tail_edge))
         input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
         object_types_dataset = tf.data.Dataset.from_tensor_slices([[
-            ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.MASK.value
+            ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.SPECIAL_TOKEN.value
         ]]).repeat()
         inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
         outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)

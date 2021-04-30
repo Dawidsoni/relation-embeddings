@@ -37,7 +37,7 @@ class SamplingModelTrainer(ModelTrainer):
         trainable_variables = self.model.get_trainable_variables_at_training_step(training_step)
         gradients = gradient_tape.gradient(loss_value, trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, trainable_variables))
-        return loss_value
+        return loss_value.numpy()
 
 
 class SupervisedModelTrainer(ModelTrainer):

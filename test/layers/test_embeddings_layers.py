@@ -1,8 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from layers.embeddings_layers import PositionEmbeddingsLayer, EmbeddingsExtractionLayer, EmbeddingsConfig
-from optimization.datasets import ObjectType
+from layers.embeddings_layers import PositionEmbeddingsLayer, EmbeddingsExtractionLayer, EmbeddingsConfig, ObjectType
 
 
 class TestEmbeddingsLayers(tf.test.TestCase):
@@ -54,17 +53,17 @@ class TestEmbeddingsLayers(tf.test.TestCase):
 
     def test_embeddings_extraction_layer_outputs(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=True
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True
         ))
         inputs = np.array((
             [[1, 0], [2, 0]],
-            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.MASK.value]],
+            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]],
         ), dtype=np.int32)
         outputs = layer(inputs)
         self.assertAllEqual(layer.relation_embeddings[1], outputs[0, 0])
         self.assertAllEqual(layer.entity_embeddings[0], outputs[0, 1])
         self.assertAllEqual(layer.entity_embeddings[2], outputs[1, 0])
-        self.assertAllEqual(layer.mask_embeddings[0], outputs[1, 1])
+        self.assertAllEqual(layer.special_token_embeddings[0], outputs[1, 1])
 
     def test_embeddings_extraction_layer_trainable(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
@@ -94,41 +93,41 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         ))
         self.assertAllEqual(initial_values, layer.relation_embeddings)
 
-    def test_embeddings_extraction_layer_pretrained_mask_embeddings(self):
+    def test_embeddings_extraction_layer_pretrained_special_token_embeddings(self):
         initial_values = np.array([[2.0, 3.0, 1.0]])
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4,
-            use_mask_embeddings=True, pretrained_mask_embeddings=initial_values
+            use_special_token_embeddings=True, pretrained_special_token_embeddings=initial_values
         ))
-        self.assertAllEqual(initial_values, layer.mask_embeddings)
+        self.assertAllEqual(initial_values, layer.special_token_embeddings)
 
     def test_embeddings_extraction_layer_use_position_embeddings(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4,
-            use_mask_embeddings=True, use_position_embeddings=True,
+            use_special_token_embeddings=True, use_position_embeddings=True,
         ))
         inputs = np.array((
             [[1, 0], [2, 0]],
-            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.MASK.value]],
+            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]],
         ), dtype=np.int32)
         outputs = layer(inputs)
         position_embeddings = layer.position_embeddings_layer.position_embeddings
         self.assertAllEqual(layer.relation_embeddings[1] + position_embeddings[0], outputs[0, 0])
         self.assertAllEqual(layer.entity_embeddings[0] + position_embeddings[1], outputs[0, 1])
         self.assertAllEqual(layer.entity_embeddings[2] + position_embeddings[0], outputs[1, 0])
-        self.assertAllEqual(layer.mask_embeddings[0] + position_embeddings[1], outputs[1, 1])
+        self.assertAllEqual(layer.special_token_embeddings[0] + position_embeddings[1], outputs[1, 1])
 
-    def test_embeddings_extraction_layer_mask_embeddings_used(self):
+    def test_embeddings_extraction_layer_special_token_embeddings_used(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=True
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True
         ))
-        self.assertEqual((1, 4), layer.mask_embeddings.shape)
+        self.assertEqual((1, 4), layer.special_token_embeddings.shape)
 
-    def test_embeddings_extraction_layer_mask_embeddings_not_used(self):
+    def test_embeddings_extraction_layer_special_token_embeddings_not_used(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, use_mask_embeddings=False
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=False
         ))
-        self.assertEqual((0, 4), layer.mask_embeddings.shape)
+        self.assertEqual((0, 4), layer.special_token_embeddings.shape)
 
     def test_embeddings_extraction_layer_position_embeddings_trainable(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(

@@ -1,7 +1,8 @@
 import tensorflow as tf
 import numpy as np
 
-from optimization.datasets import DatasetType, SamplingDataset, MaskedDataset, ObjectType
+from optimization.datasets import DatasetType, SamplingDataset, MaskedDataset
+from layers.embeddings_layers import ObjectType
 
 
 class TestDatasets(tf.test.TestCase):

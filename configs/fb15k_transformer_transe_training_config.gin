@@ -23,7 +23,7 @@ EmbeddingsConfig.position_embeddings_trainable = True
 _create_embeddings_config.entity_embeddings_path = None # "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy"
 _create_embeddings_config.relation_embeddings_path = None # "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/relation_embeddings.npy"
 _create_embeddings_config.position_embeddings_path = None
-_create_embeddings_config.mask_embeddings_path = None
+_create_embeddings_config.special_token_embeddings_path = None
 
 
 # TransformerTranse model

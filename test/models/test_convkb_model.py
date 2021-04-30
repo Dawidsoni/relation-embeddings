@@ -4,7 +4,7 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.convkb_model import ConvKBModel, ConvolutionsConfig
-from optimization.datasets import ObjectType
+from layers.embeddings_layers import ObjectType
 
 
 class TestConvKBModel(tf.test.TestCase):

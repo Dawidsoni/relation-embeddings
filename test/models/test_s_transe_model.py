@@ -4,7 +4,7 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.s_transe_model import STranseModel, EmbeddingsTransformConfig
-from optimization.datasets import ObjectType
+from layers.embeddings_layers import ObjectType
 
 
 class STestTranseModel(tf.test.TestCase):

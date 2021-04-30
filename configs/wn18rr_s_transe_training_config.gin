@@ -19,7 +19,7 @@ EmbeddingsConfig.trainable_embeddings = True
 _create_embeddings_config.entity_embeddings_path = None
 _create_embeddings_config.relation_embeddings_path = None
 _create_embeddings_config.position_embeddings_path = None
-_create_embeddings_config.mask_embeddings_path = None
+_create_embeddings_config.special_token_embeddings_path = None
 
 
 # STransE model

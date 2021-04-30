@@ -1,10 +1,9 @@
+import enum
 from dataclasses import dataclass
 from typing import Optional
 import numpy as np
 import tensorflow as tf
 import gin.tf
-
-from optimization.datasets import ObjectType
 
 
 @gin.configurable
@@ -14,15 +13,21 @@ class EmbeddingsConfig(object):
     relations_count: int
     embeddings_dimension: int = gin.REQUIRED
     trainable_embeddings: bool = True
-    use_mask_embeddings: bool = False
+    use_special_token_embeddings: bool = False
     pretrained_entity_embeddings: Optional[np.ndarray] = None
     pretrained_relation_embeddings: Optional[np.ndarray] = None
     pretrained_position_embeddings: Optional[np.ndarray] = None
-    pretrained_mask_embeddings: Optional[np.ndarray] = None
+    pretrained_special_token_embeddings: Optional[np.ndarray] = None
     use_position_embeddings: bool = False
     position_embeddings_max_inputs_length: int = 3
     use_fourier_series_in_position_embeddings: bool = False
     position_embeddings_trainable: bool = False
+
+
+class ObjectType(enum.Enum):
+    ENTITY = 0
+    RELATION = 1
+    SPECIAL_TOKEN = 2
 
 
 class PositionEmbeddingsLayer(tf.keras.layers.Layer):
@@ -83,7 +88,7 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
         self.config = config
         self.entity_embeddings = self._create_entity_embeddings_variable()
         self.relation_embeddings = self._create_relation_embeddings_variable()
-        self.mask_embeddings = self._create_mask_embeddings_variable()
+        self.special_token_embeddings = self._create_special_token_embeddings_variable()
         self.position_embeddings_layer = PositionEmbeddingsLayer(
             max_inputs_length=config.position_embeddings_max_inputs_length,
             initial_values=config.pretrained_position_embeddings,
@@ -113,27 +118,30 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
             trainable=self.config.trainable_embeddings
         )
 
-    def _create_mask_embeddings_variable(self):
-        if not self.config.use_mask_embeddings:
+    def _create_special_token_embeddings_variable(self):
+        if not self.config.use_special_token_embeddings:
             return tf.Variable(
                 np.zeros(shape=(0, self.config.embeddings_dimension), dtype=np.float32),
-                name="mask_embeddings",
+                name="special_token_embeddings",
                 trainable=False,
             )
-        masks_shape = [1, self.config.embeddings_dimension]
+        special_tokens_shape = [1, self.config.embeddings_dimension]
         return tf.Variable(
-            self._get_initial_embedding_values(masks_shape, self.config.pretrained_mask_embeddings),
-            name='mask_embeddings',
+            self._get_initial_embedding_values(special_tokens_shape, self.config.pretrained_special_token_embeddings),
+            name='special_token_embeddings',
             trainable=self.config.trainable_embeddings,
         )
 
     def _extract_object_embeddings(self, object_ids, object_types):
-        merged_embeddings = tf.concat([self.entity_embeddings, self.relation_embeddings, self.mask_embeddings], axis=0)
+        merged_embeddings = tf.concat(
+            [self.entity_embeddings, self.relation_embeddings, self.special_token_embeddings],
+            axis=0
+        )
         relation_types = tf.cast(object_types == ObjectType.RELATION.value, dtype=tf.int32)
         relation_offset = tf.shape(self.entity_embeddings)[0]
-        mask_types = tf.cast(object_types == ObjectType.MASK.value, dtype=tf.int32)
-        mask_offset = relation_offset + tf.shape(self.relation_embeddings)[0]
-        offsets = relation_offset * relation_types + mask_offset * mask_types
+        special_token_types = tf.cast(object_types == ObjectType.SPECIAL_TOKEN.value, dtype=tf.int32)
+        special_token_offset = relation_offset + tf.shape(self.relation_embeddings)[0]
+        offsets = relation_offset * relation_types + special_token_offset * special_token_types
         padded_object_ids = object_ids + offsets
         return tf.gather(merged_embeddings, padded_object_ids)
 

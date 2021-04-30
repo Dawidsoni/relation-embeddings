@@ -3,6 +3,8 @@ import logging
 import os
 import time
 import gin.tf
+import numpy as np
+import collections
 from dataclasses import dataclass
 
 import knowledge_base_state_factory
@@ -20,6 +22,27 @@ class ExperimentConfig(object):
     tensorboard_outputs_folder: str = gin.REQUIRED
     model_save_folder: str = gin.REQUIRED
     logs_output_folder: str = gin.REQUIRED
+
+
+class TrainingStopper(object):
+
+    def __init__(self, losses_to_keep=1500, expected_improvement=0.995):
+        self.losses_to_keep = losses_to_keep
+        self.losses_queue = collections.deque()
+        self.expected_improvement = expected_improvement
+
+    def add_loss_value(self, loss_value):
+        self.losses_queue.append(loss_value)
+        while len(self.losses_queue) > self.losses_to_keep:
+            self.losses_queue.popleft()
+
+    def should_training_stop(self):
+        if len(self.losses_queue) < self.losses_to_keep:
+            return False
+        split_index = int(self.losses_to_keep / 2)
+        prev_elements_mean = np.median(list(self.losses_queue)[:split_index])
+        last_elements_mean = np.median(list(self.losses_queue)[split_index:])
+        return prev_elements_mean == 0.0 or last_elements_mean / prev_elements_mean > self.expected_improvement
 
 
 def parse_training_args():
@@ -58,14 +81,16 @@ def log_experiment_information(logger, experiment_name, gin_configs, gin_binding
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
+    training_stopper = TrainingStopper()
     training_step = 1
     for training_samples in state.training_dataset.samples.take(experiment_config.training_steps):
         logger.info(f"Performing training step {training_step}")
         loss_value = state.model_trainer.train_step(training_samples, training_step)
         print(f"Loss value: {loss_value: .3f}")
-        #if (loss_value >= 4.0 and training_step) >= 450 or (loss_value >= 3.0 and training_step >= 2400):
-        #    logger.info(f"Finishing experiment due to high value of computed loss: {loss_value}")
-        #    return
+        training_stopper.add_loss_value(loss_value)
+        if training_stopper.should_training_stop():
+            logger.info(f"Finishing experiment due to high value of computed loss: {loss_value}")
+            return
         if training_step % experiment_config.steps_per_evaluation == 0:
             logger.info(f"Evaluating a model on training data")
             state.training_evaluator.evaluation_step(training_step)

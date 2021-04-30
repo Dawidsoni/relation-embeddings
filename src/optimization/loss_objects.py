@@ -61,5 +61,18 @@ class SoftplusLossObject(SamplingLossObject):
 class SupervisedLossObject(LossObject):
 
     @abstractmethod
-    def get_mean_loss_of_samples(self, true_labels, soft_predictions):
-        pass  # TODO: implement this method
+    def get_mean_loss_of_samples(self, true_labels, predictions):
+        pass
+
+
+@gin.configurable
+class CrossEntropyLossObject(SupervisedLossObject):
+
+    def __init__(self, label_smoothing):
+        super(CrossEntropyLossObject, self).__init__()
+        self.loss_function = tf.keras.losses.CategoricalCrossentropy(
+            from_logits=False, label_smoothing=label_smoothing
+        )
+
+    def get_mean_loss_of_samples(self, true_labels, predictions):
+        return self.loss_function(true_labels, predictions)

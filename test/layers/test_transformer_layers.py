@@ -36,6 +36,7 @@ class TestTransformerLayers(tf.test.TestCase):
             attention_head_dimension=512,
             pointwise_hidden_layer_dimension=2048,
             dropout_rate=0.5,
+            share_encoder_parameters=False
         )
         input_embeddings = tf.ones(shape=(32, 10, 512))
         output_embeddings = layer(input_embeddings)
