@@ -65,10 +65,10 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual([2, 1, 0], objects_types[1])
         self.assertAllEqual([0, 1, 2], objects_types[2])
         self.assertAllEqual([0, 1, 2], objects_types[3])
-        self.assertEqual(0, outputs[0])
-        self.assertEqual(1, outputs[1])
-        self.assertEqual(1, outputs[2])
-        self.assertEqual(2, outputs[3])
+        self.assertAllEqual([1.0, 0.0, 0.0], outputs[0])
+        self.assertAllEqual([0.0, 1.0, 0.0], outputs[1])
+        self.assertAllEqual([0.0, 1.0, 0.0], outputs[2])
+        self.assertAllEqual([0.0, 0.0, 1.0], outputs[3])
 
     def test_masked_dataset_batch_size(self):
         dataset = MaskedDataset(
@@ -81,5 +81,5 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual([[0, 0, 0], [1, 1, 0]], objects_ids[1])
         self.assertAllEqual([[2, 1, 0], [2, 1, 0]], objects_types[0])
         self.assertAllEqual([[0, 1, 2], [0, 1, 2]], objects_types[1])
-        self.assertAllEqual([0, 1], outputs[0])
-        self.assertAllEqual([1, 2], outputs[1])
+        self.assertAllEqual([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], outputs[0])
+        self.assertAllEqual([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], outputs[1])

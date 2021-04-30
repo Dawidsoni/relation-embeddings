@@ -15,6 +15,12 @@ class DatasetType(enum.Enum):
     TEST = 2
 
 
+def _get_one_hot_encoded_vector(object_ids, one_hot_ids):
+    vector = np.zeros(max(object_ids) + 1)
+    vector[one_hot_ids] = 1.0
+    return vector
+
+
 class Dataset(object):
     ENTITIES_IDS_FILENAME = 'entity2id.txt'
     RELATIONS_IDS_FILENAME = 'relation2id.txt'
@@ -135,7 +141,7 @@ class MaskedDataset(Dataset):
         input_objects_ids, outputs = [], []
         for edge in self.graph_edges:
             head_edge = list(edge).copy()
-            outputs.append(head_edge[0])
+            outputs.append(_get_one_hot_encoded_vector(self.ids_of_entities, [head_edge[0]]))
             head_edge[0] = 0
             input_objects_ids.append(tuple(head_edge))
         input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
@@ -153,7 +159,7 @@ class MaskedDataset(Dataset):
         input_objects_ids, outputs = [], []
         for edge in self.graph_edges:
             tail_edge = list(edge).copy()
-            outputs.append(tail_edge[2])
+            outputs.append(_get_one_hot_encoded_vector(self.ids_of_entities, [tail_edge[2]]))
             tail_edge[2] = 0
             input_objects_ids.append(tuple(tail_edge))
         input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
