@@ -84,6 +84,15 @@ class TestLossObjects(tf.test.TestCase):
         loss_object = CrossEntropyLossObject(label_smoothing=0.1)
         self.assertAllClose(1.459136, loss_object.get_mean_loss_of_samples(true_labels, predictions))
 
+    def test_cross_entropy_losses_of_samples(self):
+        true_labels = np.array([[0, 1, 0], [0, 0, 1]], dtype=np.float32)
+        predictions = np.array([[0.05, 0.95, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
+        loss_object = CrossEntropyLossObject(label_smoothing=0.1)
+        self.assertAllClose(
+            [[0.95, 0.05, 1.0], [0.9, 0.2, 0.9]],
+            loss_object.get_losses_of_samples(true_labels, predictions)
+        )
+
 
 if __name__ == '__main__':
     tf.test.main()

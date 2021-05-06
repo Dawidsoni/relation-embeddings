@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 import enum
 import os
 import numpy as np
@@ -127,56 +127,56 @@ class SamplingDataset(Dataset):
         return tf.data.Dataset.zip((positive_samples, negative_samples))
 
 
+class SupervisedDataset(Dataset, metaclass=ABCMeta):
+    pass
+
+
 @gin.configurable
-class MaskedDataset(Dataset):
+class MaskedEntityDataset(SupervisedDataset):
 
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
     ):
-        super(MaskedDataset, self).__init__(
+        super(MaskedEntityDataset, self).__init__(
             dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
         )
 
-    def _get_head_edges_dataset(self):
-        input_objects_ids, outputs = [], []
-        for edge in self.graph_edges:
-            head_edge = list(edge).copy()
-            outputs.append(_get_one_hot_encoded_vector(self.ids_of_entities, [head_edge[0]]))
-            head_edge[0] = 0
-            input_objects_ids.append(tuple(head_edge))
-        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
-        object_types_dataset = tf.data.Dataset.from_tensor_slices([[
-            ObjectType.SPECIAL_TOKEN.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
-        ]]).repeat()
-        inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
-        outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
-        return tf.data.Dataset.zip((
-            self._get_processed_dataset(inputs_dataset),
-            self._get_processed_dataset(outputs_dataset),
-        ))
+    def _edge_to_output(self, edge, mask_index):
+        object_id = edge[mask_index]
+        if self.evaluation_mode:
+            return object_id
+        return _get_one_hot_encoded_vector(self.ids_of_entities, [object_id])
 
-    def _get_tail_edges_dataset(self):
-        input_objects_ids, outputs = [], []
-        for edge in self.graph_edges:
-            tail_edge = list(edge).copy()
-            outputs.append(_get_one_hot_encoded_vector(self.ids_of_entities, [tail_edge[2]]))
-            tail_edge[2] = 0
-            input_objects_ids.append(tuple(tail_edge))
-        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_objects_ids)
-        object_types_dataset = tf.data.Dataset.from_tensor_slices([[
-            ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.SPECIAL_TOKEN.value
-        ]]).repeat()
+    def _get_input_object_types(self, mask_index):
+        object_types = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
+        object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+        return object_types
+
+    def _get_masked_dataset(self, mask_index):
+        input_object_ids, outputs, ids_of_outputs = [], [], []
+        for raw_edge in self.graph_edges:
+            masked_edge = list(raw_edge).copy()
+            masked_edge[mask_index] = 0
+            input_object_ids.append(tuple(masked_edge))
+            outputs.append(_get_one_hot_encoded_vector(self.ids_of_entities, raw_edge[mask_index]))
+            ids_of_outputs.append(raw_edge[mask_index])
+        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_object_ids)
+        object_types_dataset = tf.data.Dataset.from_tensor_slices([self._get_input_object_types(mask_index)]).repeat()
         inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
         outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
+        ids_of_outputs_dataset = tf.data.Dataset.from_tensor_slices(ids_of_outputs)
+        mask_indexes_dataset = tf.data.Dataset.from_tensor_slices([mask_index]).repeat()
         return tf.data.Dataset.zip((
             self._get_processed_dataset(inputs_dataset),
             self._get_processed_dataset(outputs_dataset),
+            self._get_processed_dataset(ids_of_outputs_dataset),
+            self._get_processed_dataset(mask_indexes_dataset),
         ))
 
     @property
     def samples(self):
-        head_samples = self._get_head_edges_dataset()
-        tail_samples = self._get_tail_edges_dataset()
+        head_samples = self._get_masked_dataset(mask_index=0)
+        tail_samples = self._get_masked_dataset(mask_index=2)
         merged_samples = head_samples.concatenate(tail_samples)
         if self.shuffle_dataset:
             merged_samples = merged_samples.shuffle(buffer_size=10_000)

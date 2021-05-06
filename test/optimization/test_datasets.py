@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-from optimization.datasets import DatasetType, SamplingDataset, MaskedDataset
+from optimization.datasets import DatasetType, SamplingDataset, MaskedEntityDataset
 from layers.embeddings_layers import ObjectType
 
 
@@ -51,11 +51,11 @@ class TestDatasets(tf.test.TestCase):
         self.assertEqual(1, negative_samples[0][0][1, 1])
 
     def test_masked_dataset_samples(self):
-        dataset = MaskedDataset(
+        dataset = MaskedEntityDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False
         )
         samples = list(iter(dataset.samples))
-        inputs, outputs = list(zip(*samples))
+        inputs, outputs, ids_of_outputs, mask_indexes = list(zip(*samples))
         objects_ids, objects_types = list(zip(*inputs))
         self.assertAllEqual([0, 0, 1], objects_ids[0])
         self.assertAllEqual([0, 1, 2], objects_ids[1])
@@ -69,13 +69,15 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual([0.0, 1.0, 0.0], outputs[1])
         self.assertAllEqual([0.0, 1.0, 0.0], outputs[2])
         self.assertAllEqual([0.0, 0.0, 1.0], outputs[3])
+        self.assertAllEqual([0, 1, 1, 2], ids_of_outputs)
+        self.assertAllEqual([0, 0, 2, 2], mask_indexes)
 
     def test_masked_dataset_batch_size(self):
-        dataset = MaskedDataset(
+        dataset = MaskedEntityDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2
         )
         samples = list(iter(dataset.samples))
-        inputs, outputs = list(zip(*samples))
+        inputs, outputs, ids_of_outputs, mask_indexes = list(zip(*samples))
         objects_ids, objects_types = list(zip(*inputs))
         self.assertAllEqual([[0, 0, 1], [0, 1, 2]], objects_ids[0])
         self.assertAllEqual([[0, 0, 0], [1, 1, 0]], objects_ids[1])
@@ -83,3 +85,5 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual([[0, 1, 2], [0, 1, 2]], objects_types[1])
         self.assertAllEqual([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], outputs[0])
         self.assertAllEqual([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], outputs[1])
+        self.assertAllEqual([[0, 1], [1, 2]], ids_of_outputs)
+        self.assertAllEqual([[0, 0], [2, 2]], mask_indexes)

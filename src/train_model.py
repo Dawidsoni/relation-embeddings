@@ -90,7 +90,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
         training_stopper.add_loss_value(loss_value)
         if training_stopper.should_training_stop():
             logger.info(f"Finishing experiment due to high value of computed loss: {loss_value}")
-            return
+            break
         if training_step % experiment_config.steps_per_evaluation == 0:
             logger.info(f"Evaluating a model on training data")
             state.training_evaluator.evaluation_step(training_step)
@@ -99,6 +99,8 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
         if training_step == 1:
             logger.info(f"Parameters count of a model: {state.model.count_params()}")
         training_step += 1
+    if training_step < experiment_config.steps_per_evaluation:
+        return
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)
     state.model.save_with_embeddings(path_to_save_model)

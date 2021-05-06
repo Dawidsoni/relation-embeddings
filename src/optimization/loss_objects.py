@@ -64,6 +64,10 @@ class SupervisedLossObject(LossObject):
     def get_mean_loss_of_samples(self, true_labels, predictions):
         pass
 
+    @abstractmethod
+    def get_losses_of_samples(self, true_labels, predictions):
+        pass
+
 
 @gin.configurable
 class CrossEntropyLossObject(SupervisedLossObject):
@@ -76,3 +80,6 @@ class CrossEntropyLossObject(SupervisedLossObject):
 
     def get_mean_loss_of_samples(self, true_labels, predictions):
         return self.loss_function(true_labels, predictions)
+
+    def get_losses_of_samples(self, true_labels, predictions):
+        return 1 - predictions
