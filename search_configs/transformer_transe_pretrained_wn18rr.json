@@ -2,18 +2,24 @@
     "parameter_configs": [
         {
             "parameter_name": "NormLossObject.margin",
-            "parameter_values": [4.0, 5.0, 6.0, 7.0, 8.0]
+            "parameter_values": [5.0, 6.0, 7.0]
+        },
+        {
+            "parameter_name": "SamplingDataset.batch_size",
+            "parameter_values": [250, 500, 1000]
         },
         {
             "parameter_name": "_create_embeddings_config.entity_embeddings_path",
             "parameter_values": [
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy"
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy",
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_5_dropout_0_5_1608932774/entity_embeddings.npy"
             ]
         },
         {
             "parameter_name": "_create_embeddings_config.relation_embeddings_path",
             "parameter_values": [
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/relation_embeddings.npy"
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/relation_embeddings.npy",
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_5_dropout_0_5_1608932774/relation_embeddings.npy"
             ]
         },
         {
@@ -34,7 +40,7 @@
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.layers_count",
-            "parameter_values": [1, 2]
+            "parameter_values": [1, 2, 5]
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.attention_heads_count",
@@ -42,7 +48,7 @@
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.attention_head_dimension",
-            "parameter_values": [25, 50, 100, 200]
+            "parameter_values": [50, 100, 200]
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension",
@@ -58,7 +64,7 @@
         },
         {
             "parameter_name": "transformer_transe/ConvModelConfig.normalize_embeddings",
-            "parameter_values": [false, true]
+            "parameter_values": [true]
         },
         {
             "parameter_name": "transformer_transe/ConvModelConfig.dropout_rate",
@@ -70,11 +76,11 @@
         },
         {
             "parameter_name": "_create_learning_rate_schedule.decay_rate",
-            "parameter_values": [0.25, 0.5, 1.0]
+            "parameter_values": [0.5, 1.0]
         },
         {
             "parameter_name": "ExperimentConfig.training_steps",
-            "parameter_values": [10000]
+            "parameter_values": [100000]
         },
         {
             "parameter_name": "ExperimentConfig.steps_per_evaluation",
@@ -82,7 +88,15 @@
         },
         {
             "parameter_name": "_create_learning_rate_schedule.decay_steps",
-            "parameter_values": [5000]
+            "parameter_values": [50000]
+        },
+        {
+            "parameter_name": "SamplingDataset.negatives_per_positive",
+            "parameter_values": [3, 5, 10]
+        },
+        {
+            "parameter_name": "SamplingModelTrainer.negatives_reducer",
+            "parameter_values": ["@tf.reduce_max", "@tf.reduce_min"]
         }
     ],
     "banned_parameter_configs": [

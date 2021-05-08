@@ -1,7 +1,10 @@
 import numpy as np
+from unittest import mock
+from unittest.mock import MagicMock
 import tensorflow as tf
 import gin.tf
 
+from layers.embeddings_layers import ObjectType
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from optimization.datasets import SamplingDataset, DatasetType
 from optimization.model_trainers import SamplingModelTrainer
@@ -46,6 +49,40 @@ class TestModelTrainers(tf.test.TestCase):
         embeddings_layer = transe_model.embeddings_layer
         self.assertGreater(np.sum(pretrained_entity_embeddings != embeddings_layer.entity_embeddings), 0)
         self.assertGreater(np.sum(pretrained_relation_embeddings != embeddings_layer.relation_embeddings), 0)
+
+    @mock.patch.object(tf, 'GradientTape')
+    @mock.patch.object(tf.keras.optimizers, 'Adam')
+    def test_sampling_trainer_multiple_negatives(self, unused_adam_mock, unused_gradient_tape_mock):
+        np.random.seed(2)
+        dataset = SamplingDataset(
+            dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH,
+            batch_size=4,
+            repeat_samples=True,
+            negatives_per_positive=2,
+        )
+        get_losses_of_pairs_mock = MagicMock(side_effect=[tf.constant([2.0, 3.0]), tf.constant([1.0, 4.0])])
+        get_regularization_loss_mock = MagicMock(side_effect=[5.0])
+        model_mock = MagicMock()
+        loss_object_mock = MagicMock(
+            get_losses_of_pairs=get_losses_of_pairs_mock, get_regularization_loss=get_regularization_loss_mock
+        )
+        model_trainer = SamplingModelTrainer(
+            model=model_mock, loss_object=loss_object_mock, learning_rate_schedule=MagicMock()
+        )
+        training_samples = next(iter(dataset.samples))
+        loss_value = model_trainer.train_step(training_samples, training_step=1)
+        self.assertEqual(8.0, loss_value)
+        edge_object_types = np.broadcast_to(
+            [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value],
+            shape=(4, 3)
+        ).tolist()
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], model_mock.call_args_list[0][0][0][0])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[0][0][0][1])
+        self.assertAllEqual([[0, 0, 0], [0, 1, 2], [2, 0, 1], [1, 1, 0]], model_mock.call_args_list[1][0][0][0])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[1][0][0][1])
+        self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]], model_mock.call_args_list[2][0][0][0])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[2][0][0][1])
 
 
 if __name__ == '__main__':

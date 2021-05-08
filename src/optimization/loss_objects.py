@@ -23,8 +23,11 @@ class SamplingLossObject(LossObject):
         pass
 
     @abstractmethod
-    def get_mean_loss_of_pairs(self, positive_samples, negative_samples):
+    def get_losses_of_pairs(self, positive_samples, negative_samples):
         pass
+
+    def get_mean_loss_of_pairs(self, positive_samples, negative_samples):
+        return tf.reduce_mean(self.get_losses_of_pairs(positive_samples, negative_samples))
 
 
 @gin.configurable
@@ -38,10 +41,10 @@ class NormLossObject(SamplingLossObject):
     def get_losses_of_positive_samples(self, samples):
         return tf.norm(samples, axis=1, ord=self.order)
 
-    def get_mean_loss_of_pairs(self, positive_samples, negative_samples):
+    def get_losses_of_pairs(self, positive_samples, negative_samples):
         positive_distances = tf.norm(positive_samples, axis=1, ord=self.order)
         negative_distances = tf.norm(negative_samples, axis=1, ord=self.order)
-        return tf.reduce_mean(tf.nn.relu(positive_distances - negative_distances + self.margin))
+        return tf.nn.relu(positive_distances - negative_distances + self.margin)
 
 
 @gin.configurable
@@ -52,10 +55,10 @@ class SoftplusLossObject(SamplingLossObject):
             raise ValueError('Softplus metric is incompatible with embeddings of shape greater than 1')
         return tf.reshape(tf.math.softplus(samples), shape=(-1,))
 
-    def get_mean_loss_of_pairs(self, positive_samples, negative_samples):
+    def get_losses_of_pairs(self, positive_samples, negative_samples):
         positive_losses = self.get_losses_of_positive_samples(positive_samples)
         negative_losses = self.get_losses_of_positive_samples(-negative_samples)
-        return tf.reduce_mean(tf.concat([positive_losses, negative_losses], axis=0)) / 2.0
+        return tf.concat([positive_losses, negative_losses], axis=0) / 2.0
 
 
 class SupervisedLossObject(LossObject):

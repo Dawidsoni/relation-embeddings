@@ -1,5 +1,6 @@
 import dataclasses
 import gin.tf
+import tensorflow as tf
 
 from layers.embeddings_layers import EmbeddingsConfig
 from layers.transformer_layers import StackedTransformerEncodersLayer
@@ -11,11 +12,15 @@ from models.transe_model import TranseModel
 class TransformerTranseModel(TranseModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig, model_config: ConvModelConfig = gin.REQUIRED):
-        super().__init__(embeddings_config, model_config)
+        parent_model_config = dataclasses.replace(model_config, normalize_embeddings=False)
+        super().__init__(embeddings_config, parent_model_config)
         self.transformer_layer = StackedTransformerEncodersLayer()
+        self.normalize_embeddings = model_config.normalize_embeddings
 
     def call(self, inputs, training=None, **kwargs):
         outputs = self.embeddings_layer(inputs, training=training)
+        if self.normalize_embeddings:
+            outputs = tf.math.l2_normalize(outputs, axis=2)
         outputs = self.transformer_layer(outputs, training=training)
         return self._transform_and_rate_embeddings(outputs, training=training)
 

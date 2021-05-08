@@ -22,6 +22,7 @@ from optimization.model_trainers import ModelTrainer, SamplingModelTrainer
 @dataclass
 class KnowledgeBaseState(object):
     model: KnowledgeCompletionModel
+    best_model: KnowledgeCompletionModel
     training_dataset: Dataset
     loss_object: LossObject
     model_trainer: ModelTrainer
@@ -186,6 +187,7 @@ def create_knowledge_base_state(
     learning_rate_scheduler = _create_learning_rate_schedule()
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)
+    best_model = _create_model(embeddings_config, model_type)
     training_dataset = _create_dataset(
         DatasetType.TRAINING, batch_size=gin.REQUIRED, repeat_samples=True, shuffle_dataset=True, model_type=model_type
     )
@@ -196,10 +198,13 @@ def create_knowledge_base_state(
     path_func = functools.partial(os.path.join, tensorboard_folder)
     return KnowledgeBaseState(
         model=model,
+        best_model=best_model,
         training_dataset=training_dataset,
         loss_object=loss_object,
         model_trainer=_create_model_trainer(model_type, model, loss_object, learning_rate_scheduler),
-        training_evaluator=init_eval(outputs_folder=path_func("train"), dataset_type=DatasetType.TRAINING),
-        validation_evaluator=init_eval(outputs_folder=path_func("validation"), dataset_type=DatasetType.VALIDATION),
-        test_evaluator=init_eval(outputs_folder=path_func("test"), dataset_type=DatasetType.TEST),
+        training_evaluator=init_eval(model=model, outputs_folder=path_func("train"), dataset_type=DatasetType.TRAINING),
+        validation_evaluator=init_eval(
+            model=model, outputs_folder=path_func("validation"), dataset_type=DatasetType.VALIDATION
+        ),
+        test_evaluator=init_eval(model=best_model, outputs_folder=path_func("test"), dataset_type=DatasetType.TEST),
     )

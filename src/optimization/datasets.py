@@ -15,6 +15,18 @@ class DatasetType(enum.Enum):
     TEST = 2
 
 
+def get_outputs_for_sampling_dataset(training_samples, model, training):
+    positive_inputs, batched_negative_inputs = training_samples
+    batched_negative_ids, batched_negative_types = batched_negative_inputs
+    array_of_negative_ids = tf.unstack(batched_negative_ids, axis=1)
+    array_of_negative_types = tf.unstack(batched_negative_types, axis=1)
+    positive_outputs = model(positive_inputs, training=training)
+    array_of_negative_outputs = []
+    for negative_inputs in zip(array_of_negative_ids, array_of_negative_types):
+        array_of_negative_outputs.append(model(negative_inputs, training=training))
+    return positive_outputs, array_of_negative_outputs
+
+
 def _get_one_hot_encoded_vector(object_ids, one_hot_ids):
     vector = np.zeros(max(object_ids) + 1)
     vector[one_hot_ids] = 1.0
@@ -59,9 +71,9 @@ class Dataset(object):
             raise ValueError(f"Expected an instance of DatasetType, got {self.dataset_type}")
 
     def _get_processed_dataset(self, dataset):
+        dataset = dataset.repeat() if self.repeat_samples else dataset
         dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
         dataset = dataset.batch(self.batch_size) if self.batch_size is not None else dataset
-        dataset = dataset.repeat() if self.repeat_samples else dataset
         return dataset.prefetch(100)
 
     @property
@@ -72,13 +84,25 @@ class Dataset(object):
 
 @gin.configurable
 class SamplingDataset(Dataset):
+    MAX_ITERATIONS = 1000
 
     def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
+        self,
+        dataset_type,
+        data_directory=gin.REQUIRED,
+        batch_size=None,
+        repeat_samples=False,
+        shuffle_dataset=False,
+        negatives_per_positive=1,
+        sample_weights_model=None,
+        weights_candidates_count=100
     ):
         super(SamplingDataset, self).__init__(
             dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
         )
+        self.negatives_per_positive = negatives_per_positive
+        self.sample_weights_model = sample_weights_model
+        self.weights_candidates_count = weights_candidates_count
 
     @staticmethod
     def _get_integer_random_variables_iterator(low, high, batch_size):
@@ -88,10 +112,13 @@ class SamplingDataset(Dataset):
 
     @staticmethod
     def _with_object_types(dataset):
+        samples_shape = tf.data.experimental.get_structure(dataset).shape
         object_types = tf.data.Dataset.from_tensor_slices([[
             ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
         ]]).repeat()
-        return tf.data.Dataset.zip((dataset, object_types))
+        if len(samples_shape) == 1:
+            return tf.data.Dataset.zip((dataset, object_types))
+        return tf.data.Dataset.zip((dataset, object_types.batch(samples_shape[0])))
 
     def _get_positive_samples_dataset(self):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
@@ -105,18 +132,34 @@ class SamplingDataset(Dataset):
             low=0, high=len(self.ids_of_entities), batch_size=100_000
         )
         for entity_head, relation, entity_tail in self.graph_edges:
-            swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
-            while (swapped_entity_head, relation, swapped_entity_tail) in self.set_of_graph_edges:
-                swapped_entity_head, swapped_entity_tail = entity_head, entity_tail
-                if next(random_binary_variable_iterator):
-                    swapped_entity_head = self.ids_of_entities[next(random_entity_index_iterator)]
+            is_head_to_be_swapped = next(random_binary_variable_iterator)
+            produced_edges = []
+            iterations_count = 0
+            while len(produced_edges) < self.negatives_per_positive and iterations_count < self.MAX_ITERATIONS:
+                if is_head_to_be_swapped:
+                    entity_head = self.ids_of_entities[next(random_entity_index_iterator)]
                 else:
-                    swapped_entity_tail = self.ids_of_entities[next(random_entity_index_iterator)]
-            yield np.array([swapped_entity_head, relation, swapped_entity_tail], dtype=np.int32)
+                    entity_tail = self.ids_of_entities[next(random_entity_index_iterator)]
+                produced_edge = (entity_head, relation, entity_tail)
+                if produced_edge not in self.set_of_graph_edges and produced_edge not in produced_edges:
+                    produced_edges.append(produced_edge)
+                iterations_count += 1
+            yield np.array(produced_edges, dtype=np.int32)
+
+    def _sample_negatives_using_model(self, positive_sample, negative_samples):
+        positive_outputs, array_of_negative_outputs = get_outputs_for_sampling_dataset(
+            (positive_sample, negative_samples), self.sample_weights_model, training=False
+        )
+        return positive_outputs
 
     def _get_negative_samples_dataset(self):
+        if self.negatives_per_positive > 1 and self.sample_weights_model is not None:
+            raise ValueError("Cannot set negatives_per_positive > 1 and sample_weights_model at the same time")
+        negatives_per_positive = (
+            self.negatives_per_positive if self.sample_weights_model is None else self.weights_candidates_count
+        )
         raw_dataset = tf.data.Dataset.from_generator(
-            self._generate_negative_samples, tf.int32, tf.TensorShape([3])
+            self._generate_negative_samples, tf.int32, tf.TensorShape([negatives_per_positive, 3])
         )
         return self._get_processed_dataset(self._with_object_types(raw_dataset))
 
@@ -124,15 +167,18 @@ class SamplingDataset(Dataset):
     def samples(self):
         positive_samples = self._get_positive_samples_dataset()
         negative_samples = self._get_negative_samples_dataset()
-        return tf.data.Dataset.zip((positive_samples, negative_samples))
+        samples = tf.data.Dataset.zip((positive_samples, negative_samples))
+        if self.sample_weights_model is not None:
+            samples = samples.map(self._sample_negatives_using_model)
+        return samples
 
 
-class SupervisedDataset(Dataset, metaclass=ABCMeta):
+class SoftmaxDataset(Dataset, metaclass=ABCMeta):
     pass
 
 
 @gin.configurable
-class MaskedEntityDataset(SupervisedDataset):
+class MaskedEntityDataset(SoftmaxDataset):
 
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
