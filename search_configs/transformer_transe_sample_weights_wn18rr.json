@@ -90,7 +90,7 @@
         },
         {
             "parameter_name": "SamplingDataset.negatives_per_positive",
-            "parameter_values": [3, 5, 10]
+            "parameter_values": [1]
         },
         {
             "parameter_name": "SamplingModelTrainer.negatives_reducer",

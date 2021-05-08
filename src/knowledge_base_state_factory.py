@@ -1,3 +1,4 @@
+from typing import Optional
 import os
 from dataclasses import dataclass
 from enum import Enum
@@ -67,7 +68,15 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
     return type_mappings[model_type]()
 
 
-def _create_dataset(dataset_type, model_type: ModelType, batch_size=None, repeat_samples=False, shuffle_dataset=False):
+def _create_dataset(
+    dataset_type,
+    model_type: ModelType,
+    batch_size=None,
+    repeat_samples=False,
+    shuffle_dataset=False,
+    sample_weights_model=None,
+    sample_weights_loss_object=None,
+):
     sampling_dataset_initializer = functools.partial(
         SamplingDataset,
         dataset_type=dataset_type,
@@ -75,6 +84,8 @@ def _create_dataset(dataset_type, model_type: ModelType, batch_size=None, repeat
         batch_size=batch_size,
         repeat_samples=repeat_samples,
         shuffle_dataset=shuffle_dataset,
+        sample_weights_model=sample_weights_model,
+        sample_weights_loss_object=sample_weights_loss_object,
     )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_dataset_initializer(),
@@ -177,6 +188,17 @@ def _create_embeddings_config(
     )
 
 
+@gin.configurable
+def create_sampling_weights_model_with_loss_object(model_type: Optional[ModelType] = None):
+    if model_type is None:
+        return None, None
+    with gin.config_scope("sampling_weights"):
+        embeddings_config = _create_embeddings_config(model_type)
+        model = _create_model(embeddings_config, model_type=model_type)
+        loss_object = _create_loss_object(loss_type=LossType.NORM)
+        return model, loss_object
+
+
 @gin.configurable(blacklist=['tensorboard_folder'])
 def create_knowledge_base_state(
     tensorboard_folder: str,
@@ -188,8 +210,15 @@ def create_knowledge_base_state(
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)
     best_model = _create_model(embeddings_config, model_type)
+    sample_weights_model, sample_weights_loss_object = create_sampling_weights_model_with_loss_object()
     training_dataset = _create_dataset(
-        DatasetType.TRAINING, batch_size=gin.REQUIRED, repeat_samples=True, shuffle_dataset=True, model_type=model_type
+        DatasetType.TRAINING,
+        batch_size=gin.REQUIRED,
+        repeat_samples=True,
+        shuffle_dataset=True,
+        model_type=model_type,
+        sample_weights_model=sample_weights_model,
+        sample_weights_loss_object=sample_weights_loss_object,
     )
     init_eval = functools.partial(
         _create_model_evaluator,

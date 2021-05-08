@@ -95,7 +95,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
     training_stopper = TrainingStopper()
     training_step, evaluation_loss, best_evaluation_loss = 1, float("inf"), float("inf")
-    for training_samples in state.training_dataset.samples.take(experiment_config.training_steps):
+    for training_samples in state.training_dataset.samples:
         logger.info(f"Performing training step {training_step}")
         training_loss = state.model_trainer.train_step(training_samples, training_step)
         logger.info(f"Loss value: {training_loss: .3f}")
@@ -115,6 +115,8 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
                 state.test_evaluator.build_model()
                 state.best_model.set_weights(state.model.get_weights())
         training_step += 1
+        if training_step >= experiment_config.training_steps:
+            break
     if best_evaluation_loss > 4000:
         return
     state.test_evaluator.log_metrics(logger)

@@ -18,11 +18,11 @@ class DatasetType(enum.Enum):
 def get_outputs_for_sampling_dataset(training_samples, model, training):
     positive_inputs, batched_negative_inputs = training_samples
     batched_negative_ids, batched_negative_types = batched_negative_inputs
-    array_of_negative_ids = tf.unstack(batched_negative_ids, axis=1)
-    array_of_negative_types = tf.unstack(batched_negative_types, axis=1)
+    negative_ids = tf.unstack(batched_negative_ids, axis=1)
+    negative_types = tf.unstack(batched_negative_types, axis=1)
     positive_outputs = model(positive_inputs, training=training)
     array_of_negative_outputs = []
-    for negative_inputs in zip(array_of_negative_ids, array_of_negative_types):
+    for negative_inputs in zip(negative_ids, negative_types):
         array_of_negative_outputs.append(model(negative_inputs, training=training))
     return positive_outputs, array_of_negative_outputs
 
@@ -82,7 +82,7 @@ class Dataset(object):
         pass
 
 
-@gin.configurable
+@gin.configurable(blacklist=['sample_weights_model', 'sample_weights_loss_object'])
 class SamplingDataset(Dataset):
     MAX_ITERATIONS = 1000
 
@@ -95,6 +95,7 @@ class SamplingDataset(Dataset):
         shuffle_dataset=False,
         negatives_per_positive=1,
         sample_weights_model=None,
+        sample_weights_loss_object=None,
         weights_candidates_count=100
     ):
         super(SamplingDataset, self).__init__(
@@ -102,6 +103,7 @@ class SamplingDataset(Dataset):
         )
         self.negatives_per_positive = negatives_per_positive
         self.sample_weights_model = sample_weights_model
+        self.sample_weights_loss_object = sample_weights_loss_object
         self.weights_candidates_count = weights_candidates_count
 
     @staticmethod
@@ -124,7 +126,7 @@ class SamplingDataset(Dataset):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
         return self._get_processed_dataset(self._with_object_types(raw_dataset))
 
-    def _generate_negative_samples(self):
+    def _generate_negative_samples(self, negatives_per_positive):
         random_binary_variable_iterator = self._get_integer_random_variables_iterator(
             low=0, high=2, batch_size=100_000
         )
@@ -135,7 +137,7 @@ class SamplingDataset(Dataset):
             is_head_to_be_swapped = next(random_binary_variable_iterator)
             produced_edges = []
             iterations_count = 0
-            while len(produced_edges) < self.negatives_per_positive and iterations_count < self.MAX_ITERATIONS:
+            while len(produced_edges) < negatives_per_positive and iterations_count < self.MAX_ITERATIONS:
                 if is_head_to_be_swapped:
                     entity_head = self.ids_of_entities[next(random_entity_index_iterator)]
                 else:
@@ -146,12 +148,6 @@ class SamplingDataset(Dataset):
                 iterations_count += 1
             yield np.array(produced_edges, dtype=np.int32)
 
-    def _sample_negatives_using_model(self, positive_sample, negative_samples):
-        positive_outputs, array_of_negative_outputs = get_outputs_for_sampling_dataset(
-            (positive_sample, negative_samples), self.sample_weights_model, training=False
-        )
-        return positive_outputs
-
     def _get_negative_samples_dataset(self):
         if self.negatives_per_positive > 1 and self.sample_weights_model is not None:
             raise ValueError("Cannot set negatives_per_positive > 1 and sample_weights_model at the same time")
@@ -159,17 +155,40 @@ class SamplingDataset(Dataset):
             self.negatives_per_positive if self.sample_weights_model is None else self.weights_candidates_count
         )
         raw_dataset = tf.data.Dataset.from_generator(
-            self._generate_negative_samples, tf.int32, tf.TensorShape([negatives_per_positive, 3])
+            lambda: self._generate_negative_samples(negatives_per_positive),
+            tf.int32,
+            tf.TensorShape([negatives_per_positive, 3])
         )
         return self._get_processed_dataset(self._with_object_types(raw_dataset))
+
+    def _pick_samples_using_model(self, samples_iterator):
+        for training_samples in samples_iterator:
+            positive_outputs, array_of_negative_outputs = get_outputs_for_sampling_dataset(
+                training_samples, self.sample_weights_model, training=False
+            )
+            losses = tf.stack([
+                self.sample_weights_loss_object.get_losses_of_pairs(positive_outputs, negative_outputs)
+                for negative_outputs in array_of_negative_outputs
+            ], axis=1)
+            probs = losses / tf.expand_dims(tf.reduce_sum(losses, axis=1), axis=1)
+            indexes_of_chosen_samples = tf.reshape(tf.random.categorical(tf.math.log(probs), num_samples=1), (-1, ))
+            positive_inputs, negative_inputs = training_samples
+            negative_ids, negative_types = negative_inputs
+            negative_ids = tf.gather(negative_ids, indexes_of_chosen_samples, axis=1, batch_dims=1)
+            negative_ids = tf.expand_dims(negative_ids, axis=1)
+            negative_types = tf.gather(negative_types, indexes_of_chosen_samples, axis=1, batch_dims=1)
+            negative_types = tf.expand_dims(negative_types, axis=1)
+            yield positive_inputs, (negative_ids, negative_types)
 
     @property
     def samples(self):
         positive_samples = self._get_positive_samples_dataset()
         negative_samples = self._get_negative_samples_dataset()
         samples = tf.data.Dataset.zip((positive_samples, negative_samples))
+        if (self.sample_weights_model is None) != (self.sample_weights_loss_object is None):
+            raise ValueError("Expected sample_weights_model and sample_weights_loss_object to be set.")
         if self.sample_weights_model is not None:
-            samples = samples.map(self._sample_negatives_using_model)
+            samples = self._pick_samples_using_model(samples)
         return samples
 
 

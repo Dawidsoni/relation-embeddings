@@ -12,20 +12,14 @@
             "parameter_name": "_create_embeddings_config.entity_embeddings_path",
             "parameter_values": [
                 null,
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_5_dropout_0_5_1608932774/entity_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_dropout_0_5_1608942256/entity_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_7_dropout_0_5_1608951897/entity_embeddings.npy"
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy"
             ]
         },
         {
             "parameter_name": "_create_embeddings_config.relation_embeddings_path",
             "parameter_values": [
                 null,
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/relation_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_5_dropout_0_5_1608932774/relation_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_dropout_0_5_1608942256/relation_embeddings.npy",
-                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_7_dropout_0_5_1608951897/relation_embeddings.npy"
+                "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/relation_embeddings.npy"
             ]
         },
         {
