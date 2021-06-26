@@ -93,8 +93,9 @@ def log_experiment_information(logger, experiment_name, gin_configs, gin_binding
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
-    training_stopper = TrainingStopper()
-    training_step, evaluation_loss, best_evaluation_loss = 1, float("inf"), float("inf")
+    training_stoppers = collections.defaultdict(lambda: TrainingStopper())
+    training_step = 1
+    best_evaluation_losses = collections.defaultdict(lambda: float("inf"))
     for training_samples in state.training_dataset.samples:
         logger.info(f"Performing training step {training_step}")
         training_loss = state.model_trainer.train_step(training_samples, training_step)
@@ -105,20 +106,22 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
             logger.info(f"Evaluating a model on training data")
             state.training_evaluator.evaluation_step(training_step)
             logger.info(f"Evaluating a model on validation data")
-            evaluation_loss = state.validation_evaluator.evaluation_step(training_step)
-            training_stopper.add_loss_value(evaluation_loss)
-            if training_stopper.should_training_stop():
-                logger.info(f"Finishing experiment due to high value of computed evaluation loss: {evaluation_loss}")
+            evaluation_losses = state.validation_evaluator.evaluation_step(training_step)
+            for index, evaluation_loss in enumerate(evaluation_losses):
+                training_stoppers[index].add_loss_value(evaluation_loss)
+            if all([stopper.should_training_stop() for stopper in training_stoppers]):
+                logger.info(f"Finishing experiment due to high value of evaluation losses: {evaluation_losses}")
                 break
-            if evaluation_loss < best_evaluation_loss:
-                best_evaluation_loss = evaluation_loss
-                logger.info(f"Updating best model (evaluation loss: {best_evaluation_loss})")
+            if any([best_evaluation_losses[index] > loss for index, loss in enumerate(evaluation_losses)]):
+                for index, loss in evaluation_losses:
+                    best_evaluation_losses[index] = loss
+                logger.info(f"Updating best model (evaluation losses: {best_evaluation_losses})")
                 state.test_evaluator.build_model()
                 state.best_model.set_weights(state.model.get_weights())
         training_step += 1
         if training_step >= experiment_config.training_steps:
             break
-    if best_evaluation_loss > 4000:
+    if best_evaluation_losses[0] > 4000:
         return
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)
