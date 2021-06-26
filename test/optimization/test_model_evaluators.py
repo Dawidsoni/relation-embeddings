@@ -40,8 +40,8 @@ class TestModelEvaluators(tf.test.TestCase):
         model_evaluator.evaluation_step(step=0)
         model_evaluator.evaluation_step(step=1)
         file_writer_mock.assert_called_once()
-        self.assertEqual(8, summary_scalar_histogram.call_count)
-        self.assertEqual(26, summary_scalar_patch.call_count)
+        self.assertEqual(4, summary_scalar_histogram.call_count)
+        self.assertEqual(24, summary_scalar_patch.call_count)
 
 
 if __name__ == '__main__':
