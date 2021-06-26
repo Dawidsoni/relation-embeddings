@@ -13,7 +13,7 @@ class EdgesProducer(object):
         candidate_edges_object_ids[:, swap_index] = self.ids_of_entities
         existing_edges_object_ids = [
             index for index, candidate in enumerate(candidate_edges_object_ids)
-            if tuple(candidate) in self.set_of_graph_edges and tuple(candidate) != tuple(object_ids)
+            if tuple(candidate[:3]) in self.set_of_graph_edges and tuple(candidate[:3]) != tuple(object_ids[:3])
         ]
         filtered_edges_object_ids = np.delete(candidate_edges_object_ids, existing_edges_object_ids, axis=0)
         pattern_index = np.where((object_ids == filtered_edges_object_ids).all(axis=1))[0][0]

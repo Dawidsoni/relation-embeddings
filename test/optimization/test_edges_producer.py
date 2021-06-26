@@ -44,6 +44,25 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertAllEqual((3, 3), edges_object_ids.shape)
         self.assertAllEqual([0, 0, 1], edges_object_ids[0])
 
+    def test_multiple_object_ids(self):
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        edges_object_ids, edges_object_types = edges_producer.produce_head_edges(
+            sample=(np.array([1, 0, 1, 2, 3]), np.array([1, 0, 2, 1, 0])), target_pattern_index=0
+        )
+        self.assertAllEqual([[1, 0, 1, 2, 3], [2, 0, 1, 2, 3]], edges_object_ids)
+        self.assertAllEqual([[1, 0, 2, 1, 0], [1, 0, 2, 1, 0]], edges_object_types)
+
+    def test_edge_information(self):
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=None)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        edges_object_ids, edges_object_types, object_positions = edges_producer.produce_head_edges(
+            sample=(np.array([1, 0, 1]), np.array([1, 0, 2]), np.array([2, 3, 1])), target_pattern_index=0
+        )
+        self.assertAllEqual([[1, 0, 1], [2, 0, 1]], edges_object_ids)
+        self.assertAllEqual([[1, 0, 2], [1, 0, 2]], edges_object_types)
+        self.assertAllEqual([[2, 3, 1], [2, 3, 1]], object_positions)
+
 
 if __name__ == '__main__':
     tf.test.main()
