@@ -69,7 +69,7 @@ def run_parameter_search(gin_configs, gin_bindings, search_config):
     with open(search_config, mode="r") as file_stream:
         parameter_configs = parse_parameter_configs(json.load(file_stream))
     random.shuffle(parameter_configs)
-    for parameter_config in parameter_configs[:10]:
+    for parameter_config in parameter_configs:
         experiment_bindings = [
             f"{key} = '{value}'" if isinstance(value, str) and value[0] != "@" else f"{key} = {value}"
             for key, value in parameter_config.items()

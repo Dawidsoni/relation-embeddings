@@ -112,6 +112,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
                 break
             if evaluation_loss < best_evaluation_loss:
                 best_evaluation_loss = evaluation_loss
+                logger.info(f"Updating best model (evaluation loss: {best_evaluation_loss})")
                 state.test_evaluator.build_model()
                 state.best_model.set_weights(state.model.get_weights())
         training_step += 1
