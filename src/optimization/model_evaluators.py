@@ -136,7 +136,7 @@ class SamplingModelEvaluator(ModelEvaluator):
             self._compute_and_report_losses(positive_samples, step)
             self._compute_and_report_model_outputs(positive_samples, step)
             self._maybe_report_learning_rate(step)
-        return metrics["metrics_averaged"].result()[0]
+        return metrics["metrics_averaged"].result()[2]
 
     def log_metrics(self, logger):
         positive_samples_iterator = self.dataset.samples.map(
