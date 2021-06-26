@@ -17,12 +17,9 @@ class DatasetType(enum.Enum):
 
 def get_outputs_for_sampling_dataset(training_samples, model, training):
     positive_inputs, batched_negative_inputs = training_samples
-    batched_negative_ids, batched_negative_types = batched_negative_inputs
-    negative_ids = tf.unstack(batched_negative_ids, axis=1)
-    negative_types = tf.unstack(batched_negative_types, axis=1)
     positive_outputs = model(positive_inputs, training=training)
     array_of_negative_outputs = []
-    for negative_inputs in zip(negative_ids, negative_types):
+    for negative_inputs in tf.unstack(tf.stack(batched_negative_inputs), axis=2):
         array_of_negative_outputs.append(model(negative_inputs, training=training))
     return positive_outputs, array_of_negative_outputs
 
