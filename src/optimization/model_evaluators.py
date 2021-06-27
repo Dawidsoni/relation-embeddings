@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from typing import Optional, List, Tuple, Union
 import tensorflow as tf
+import itertools
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from optimization.datasets import SamplingDataset, Dataset, SoftmaxDataset
@@ -21,12 +22,11 @@ class ModelEvaluator(object):
         dataset: Dataset,
         output_directory: str,
         learning_rate_scheduler: Optional[LearningRateSchedule],
-        samples_per_step: int,
     ):
         self.model = model
         self.loss_object = loss_object
         self.dataset = dataset
-        self.iterator_of_samples = dataset.samples.repeat().batch(samples_per_step).as_numpy_iterator()
+        self.iterator_of_samples = dataset.samples.as_numpy_iterator()
         self.output_directory = output_directory
         self._summary_writer = None
         self.learning_rate_scheduler = learning_rate_scheduler
@@ -74,7 +74,6 @@ class SamplingModelEvaluator(ModelEvaluator):
         existing_graph_edges: List[Tuple],
         output_directory: str,
         learning_rate_scheduler: Optional[LearningRateSchedule] = None,
-        samples_per_step: int = 100,
     ):
         super(SamplingModelEvaluator, self).__init__(
             model=model,
@@ -82,7 +81,6 @@ class SamplingModelEvaluator(ModelEvaluator):
             dataset=dataset,
             output_directory=output_directory,
             learning_rate_scheduler=learning_rate_scheduler,
-            samples_per_step=samples_per_step,
         )
         self.edges_producer = EdgesProducer(dataset.ids_of_entities, existing_graph_edges)
 
@@ -132,7 +130,10 @@ class SamplingModelEvaluator(ModelEvaluator):
     def evaluation_step(self, step):
         positive_samples, unused_negative_samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
-            metrics = self._compute_and_report_metrics(zip(*positive_samples), step)
+            metrics = self._compute_and_report_metrics(
+                samples=[{key: values[index] for key, values in positive_samples.items()}
+                         for index in range(tf.shape(positive_samples["object_ids"])[0])],
+                step=step)
             self._compute_and_report_losses(positive_samples, step)
             self._compute_and_report_model_outputs(positive_samples, step)
             self._maybe_report_learning_rate(step)
@@ -140,9 +141,12 @@ class SamplingModelEvaluator(ModelEvaluator):
         return mean_rank, 1.0 - mean_reciprocal_rank, 1.0 - hits10
 
     def log_metrics(self, logger):
-        positive_samples_iterator = self.dataset.samples.map(
+        positive_samples_infinite_iterator = self.dataset.samples.map(
             lambda positive_samples, negative_samples: positive_samples
-        ).as_numpy_iterator()
+        ).unbatch().as_numpy_iterator()
+        positive_samples_iterator = itertools.islice(
+            positive_samples_infinite_iterator, len(self.dataset.graph_edges)
+        )
         named_metrics = self._compute_metrics_on_samples(positive_samples_iterator)
         for name_prefix, metrics in named_metrics.items():
             mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
@@ -163,7 +167,6 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         existing_graph_edges: List[Tuple],
         output_directory: str,
         learning_rate_scheduler: Optional[LearningRateSchedule] = None,
-        samples_per_step: int = 100,
     ):
         super(SoftmaxModelEvaluator, self).__init__(
             model=model,
@@ -171,7 +174,6 @@ class SoftmaxModelEvaluator(ModelEvaluator):
             dataset=dataset,
             output_directory=output_directory,
             learning_rate_scheduler=learning_rate_scheduler,
-            samples_per_step=samples_per_step,
         )
         self.losses_filter = LossesFilter(dataset.ids_of_entities, existing_graph_edges)
 

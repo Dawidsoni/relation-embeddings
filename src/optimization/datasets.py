@@ -43,11 +43,10 @@ class Dataset(object):
     VALIDATION_DATASET_FILENAME = "valid.txt"
     TEST_DATASET_FILENAME = "test.txt"
 
-    def __init__(self, dataset_type, data_directory, batch_size, repeat_samples=False, shuffle_dataset=False):
+    def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
-        self.repeat_samples = repeat_samples
         self.shuffle_dataset = shuffle_dataset
         entities_df = pd.read_table(os.path.join(data_directory, self.ENTITIES_IDS_FILENAME), header=None)
         relations_df = pd.read_table(os.path.join(data_directory, self.RELATIONS_IDS_FILENAME), header=None)
@@ -86,9 +85,9 @@ class Dataset(object):
         return graph_edges
 
     def _get_processed_dataset(self, dataset):
-        dataset = dataset.repeat() if self.repeat_samples else dataset
         dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
-        dataset = dataset.batch(self.batch_size) if self.batch_size is not None else dataset
+        dataset = dataset.repeat()
+        dataset = dataset.batch(self.batch_size, drop_remainder=True)
         return dataset.prefetch(100)
 
     @property
@@ -100,38 +99,23 @@ class Dataset(object):
 @gin.configurable(blacklist=['sample_weights_model', 'sample_weights_loss_object'])
 class SamplingDataset(Dataset):
     MAX_ITERATIONS = 1000
+    EDGE_OBJECT_TYPES = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
 
     def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False,
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
         negatives_per_positive=1, sample_weights_model=None, sample_weights_loss_object=None,
         sample_weights_count=100
     ):
-        super(SamplingDataset, self).__init__(
-            dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
-        )
+        super(SamplingDataset, self).__init__(dataset_type, data_directory, batch_size, shuffle_dataset)
         self.negatives_per_positive = negatives_per_positive
         self.sample_weights_model = sample_weights_model
         self.sample_weights_loss_object = sample_weights_loss_object
         self.sample_weights_count = sample_weights_count
 
-    @staticmethod
-    def _with_object_types(dataset):
-        samples_shape = tf.data.experimental.get_structure(dataset).shape
-        object_types = tf.data.Dataset.from_tensor_slices([[
-            ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value
-        ]]).repeat()
-        if len(samples_shape) == 1:
-            return tf.data.Dataset.zip((dataset, object_types))
-        elif len(samples_shape) == 2:
-            return tf.data.Dataset.zip((dataset, object_types.batch(samples_shape[0])))
-        else:
-            raise ValueError(
-                f"Expected the number of dimensions of `dataset` to be less or equal than 2, got {len(samples_shape)}"
-            )
-
     def _get_positive_samples_dataset(self):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
-        return self._get_processed_dataset(self._with_object_types(raw_dataset))
+        raw_dataset = raw_dataset.map(lambda x: {"object_ids": x, "object_types": self.EDGE_OBJECT_TYPES})
+        return self._get_processed_dataset(raw_dataset)
 
     def _generate_negative_samples(self, negatives_per_positive):
         random_binary_variable_iterator = _get_int_random_variables_iterator(low=0, high=2)
@@ -150,7 +134,21 @@ class SamplingDataset(Dataset):
                     produced_edges.append(produced_edge)
                 iterations_count += 1
             if iterations_count < self.MAX_ITERATIONS:
-                yield np.array(produced_edges, dtype=np.int32)
+                for produced_edge in produced_edges:
+                    yield {
+                        "object_ids": produced_edge,
+                        "object_types": self.EDGE_OBJECT_TYPES,
+                        "head_swapped": is_head_to_be_swapped,
+                    }
+
+    def _reorder_negative_samples(self, batched_samples):
+        reordered_samples = []
+        for key, values in batched_samples.items():
+            for index, negative_inputs in enumerate(tf.unstack(values, axis=1)):
+                if len(reordered_samples) <= index:
+                    reordered_samples.append({})
+                reordered_samples[index][key] = negative_inputs
+        return reordered_samples
 
     def _get_negative_samples_dataset(self):
         if self.negatives_per_positive > 1 and self.sample_weights_model is not None:
@@ -160,28 +158,30 @@ class SamplingDataset(Dataset):
         )
         raw_dataset = tf.data.Dataset.from_generator(
             lambda: self._generate_negative_samples(negatives_per_positive),
-            tf.int32,
-            tf.TensorShape([negatives_per_positive, 3])
+            output_signature={"object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
+                              "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
+                              "head_swapped": tf.TensorSpec(shape=(), dtype=tf.bool)},
         )
-        return self._get_processed_dataset(self._with_object_types(raw_dataset))
+        raw_dataset = raw_dataset.batch(negatives_per_positive, drop_remainder=True)
+        return self._get_processed_dataset(raw_dataset).map(self._reorder_negative_samples)
 
-    def _pick_samples_using_model(self, positive_inputs, negative_inputs):
-        training_samples = (positive_inputs, negative_inputs)
-        positive_outputs, array_of_negative_outputs = get_outputs_for_sampling_dataset(
-            training_samples, self.sample_weights_model, training=False
-        )
-        losses = tf.stack([
-            self.sample_weights_loss_object.get_losses_of_pairs(positive_outputs, negative_outputs)
-            for negative_outputs in array_of_negative_outputs
-        ], axis=1)
+    def _pick_samples_using_model(self, positive_inputs, array_of_negative_inputs):
+        positive_outputs = self.sample_weights_model(positive_inputs, training=False)
+        array_of_raw_losses = []
+        for negative_inputs in array_of_negative_inputs:
+            negative_outputs = self.sample_weights_model(negative_inputs, training=False)
+            array_of_raw_losses.append(self.sample_weights_loss_object.get_losses_of_pairs(
+                positive_outputs, negative_outputs
+            ))
+        losses = tf.transpose(tf.stack(array_of_raw_losses, axis=0))
         probs = losses / tf.expand_dims(tf.reduce_sum(losses, axis=1), axis=1)
         indexes_of_chosen_samples = tf.reshape(tf.random.categorical(tf.math.log(probs), num_samples=1), (-1, ))
-        chosen_negative_inputs = []
-        for inputs in negative_inputs:
-            chosen_negative_inputs.append(tf.expand_dims(
-                tf.gather(inputs, indexes_of_chosen_samples, axis=1, batch_dims=1), axis=1)
-            )
-        return positive_inputs, tuple(chosen_negative_inputs)
+        negative_samples_keys = list(array_of_negative_inputs[0].keys())
+        chosen_negative_inputs = {}
+        for key in negative_samples_keys:
+            stacked_inputs = tf.stack([inputs[key] for inputs in array_of_negative_inputs], axis=1)
+            chosen_negative_inputs[key] = tf.gather(stacked_inputs, indexes_of_chosen_samples, axis=1, batch_dims=1)
+        return positive_inputs, (chosen_negative_inputs, )
 
     @property
     def samples(self):
@@ -203,10 +203,10 @@ class SoftmaxDataset(Dataset, metaclass=ABCMeta):
 class MaskedEntityDataset(SoftmaxDataset):
 
     def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=None, repeat_samples=False, shuffle_dataset=False
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False
     ):
         super(MaskedEntityDataset, self).__init__(
-            dataset_type, data_directory, batch_size, repeat_samples, shuffle_dataset
+            dataset_type, data_directory, batch_size, shuffle_dataset
         )
 
     def _edge_to_output(self, edge, mask_index):

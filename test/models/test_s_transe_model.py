@@ -15,7 +15,10 @@ class STestTranseModel(tf.test.TestCase):
         self.embeddings_config = EmbeddingsConfig(entities_count=3, relations_count=2, embeddings_dimension=4)
         self.model_config = ConvModelConfig(include_reduce_dim_layer=False)
         edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
-        self.model_inputs = np.array(([[0, 0, 1], [0, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
+        self.model_inputs = {
+            "object_ids": tf.constant([[0, 0, 1], [0, 1, 2]], dtype=tf.int32),
+            "object_types": tf.constant([edge_object_type, edge_object_type], dtype=tf.int32),
+        }
         gin.clear_config()
 
     def test_outputs(self):

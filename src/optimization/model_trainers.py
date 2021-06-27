@@ -3,7 +3,6 @@ import tensorflow as tf
 import gin.tf
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
-from optimization import datasets
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
 
 
@@ -34,13 +33,12 @@ class SamplingModelTrainer(ModelTrainer):
 
     def train_step(self, training_samples: tf.Tensor, training_step: int):
         with tf.GradientTape() as gradient_tape:
-            positive_outputs, array_of_negative_outputs = datasets.get_outputs_for_sampling_dataset(
-                training_samples, self.model, training=True
-            )
-            array_of_raw_losses = [
-                self.loss_object.get_losses_of_pairs(positive_outputs, negative_outputs)
-                for negative_outputs in array_of_negative_outputs
-            ]
+            positive_inputs, array_of_negative_inputs = training_samples
+            positive_outputs = self.model(positive_inputs, training=True)
+            array_of_raw_losses = []
+            for negative_inputs in array_of_negative_inputs:
+                negative_outputs = self.model(negative_inputs, training=True)
+                array_of_raw_losses.append(self.loss_object.get_losses_of_pairs(positive_outputs, negative_outputs))
             raw_losses = self.negatives_reducer(array_of_raw_losses, axis=0)
             loss_value = tf.reduce_mean(raw_losses) + self.loss_object.get_regularization_loss(self.model)
         trainable_variables = self.model.get_trainable_variables_at_training_step(training_step)

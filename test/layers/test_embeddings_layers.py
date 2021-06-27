@@ -55,10 +55,12 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True
         ))
-        inputs = np.array((
-            [[1, 0], [2, 0]],
-            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]],
-        ), dtype=np.int32)
+        inputs = {
+            "object_ids": tf.constant([[1, 0], [2, 0]], dtype=tf.int32),
+            "object_types": tf.constant(
+                [[ObjectType.RELATION.value, ObjectType.ENTITY.value],
+                 [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]], dtype=tf.int32)
+        }
         outputs = layer(inputs)
         self.assertAllEqual(layer.relation_embeddings[1], outputs[0, 0])
         self.assertAllEqual(layer.entity_embeddings[0], outputs[0, 1])
@@ -106,10 +108,12 @@ class TestEmbeddingsLayers(tf.test.TestCase):
             entities_count=3, relations_count=2, embeddings_dimension=4,
             use_special_token_embeddings=True, use_position_embeddings=True,
         ))
-        inputs = np.array((
-            [[1, 0], [2, 0]],
-            [[ObjectType.RELATION.value, ObjectType.ENTITY.value], [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]],
-        ), dtype=np.int32)
+        inputs = {
+            "object_ids": tf.constant([[1, 0], [2, 0]], dtype=tf.int32),
+            "object_types": tf.constant(
+                [[ObjectType.RELATION.value, ObjectType.ENTITY.value],
+                 [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]], dtype=tf.int32)
+        }
         outputs = layer(inputs)
         position_embeddings = layer.position_embeddings_layer.position_embeddings
         self.assertAllEqual(layer.relation_embeddings[1] + position_embeddings[0], outputs[0, 0])

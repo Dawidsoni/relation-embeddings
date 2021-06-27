@@ -38,7 +38,7 @@ class TestModelTrainers(tf.test.TestCase):
         transe_model = TranseModel(embeddings_config, model_config)
         model_trainer = SamplingModelTrainer(transe_model, loss_object, learning_rate_schedule)
         dataset = SamplingDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=2, repeat_samples=True
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=2
         )
         samples_iterator = iter(dataset.samples)
         model_trainer.train_step(training_samples=next(samples_iterator), training_step=1)
@@ -58,7 +58,6 @@ class TestModelTrainers(tf.test.TestCase):
             dataset_type=DatasetType.TRAINING,
             data_directory=self.DATASET_PATH,
             batch_size=4,
-            repeat_samples=True,
             negatives_per_positive=2,
         )
         get_losses_of_pairs_mock = MagicMock(side_effect=[tf.constant([2.0, 3.0]), tf.constant([1.0, 4.0])])
@@ -77,12 +76,16 @@ class TestModelTrainers(tf.test.TestCase):
             [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value],
             shape=(4, 3)
         ).tolist()
-        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], model_mock.call_args_list[0][0][0][0])
-        self.assertAllEqual(edge_object_types, model_mock.call_args_list[0][0][0][1])
-        self.assertAllEqual([[0, 0, 0], [0, 1, 2], [2, 0, 1], [1, 1, 0]], model_mock.call_args_list[1][0][0][0])
-        self.assertAllEqual(edge_object_types, model_mock.call_args_list[1][0][0][1])
-        self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]], model_mock.call_args_list[2][0][0][0])
-        self.assertAllEqual(edge_object_types, model_mock.call_args_list[2][0][0][1])
+        print(model_mock.call_args_list[0][0][0]["object_ids"])
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]],
+                            model_mock.call_args_list[0][0][0]["object_ids"])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[0][0][0]["object_types"])
+        self.assertAllEqual([[0, 0, 0], [0, 1, 2], [2, 0, 1], [1, 1, 0]],
+                            model_mock.call_args_list[1][0][0]["object_ids"])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[1][0][0]["object_types"])
+        self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]],
+                            model_mock.call_args_list[2][0][0]["object_ids"])
+        self.assertAllEqual(edge_object_types, model_mock.call_args_list[2][0][0]["object_types"])
 
 
 if __name__ == '__main__':

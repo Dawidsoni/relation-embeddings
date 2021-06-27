@@ -71,8 +71,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
 def _create_dataset(
     dataset_type,
     model_type: ModelType,
-    batch_size=None,
-    repeat_samples=False,
+    batch_size,
     shuffle_dataset=False,
     sample_weights_model=None,
     sample_weights_loss_object=None,
@@ -82,7 +81,6 @@ def _create_dataset(
         dataset_type=dataset_type,
         data_directory=gin.REQUIRED,
         batch_size=batch_size,
-        repeat_samples=repeat_samples,
         shuffle_dataset=shuffle_dataset,
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
@@ -99,9 +97,9 @@ def _create_dataset(
 
 
 def _get_existing_graph_edges(model_type: ModelType):
-    training_dataset = _create_dataset(DatasetType.TRAINING, model_type)
-    validation_dataset = _create_dataset(DatasetType.VALIDATION, model_type)
-    test_dataset = _create_dataset(DatasetType.TEST, model_type)
+    training_dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1)
+    validation_dataset = _create_dataset(DatasetType.VALIDATION, model_type, batch_size=1)
+    test_dataset = _create_dataset(DatasetType.TEST, model_type, batch_size=1)
     return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
 
 
@@ -125,14 +123,14 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
 
 def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, loss_object, learning_rate_scheduler):
     existing_graph_edges = _get_existing_graph_edges(model_type)
-    unbatched_dataset = _create_dataset(
-        dataset_type, batch_size=None, repeat_samples=False, shuffle_dataset=True, model_type=model_type
+    evaluation_dataset = _create_dataset(
+        dataset_type, batch_size=200, shuffle_dataset=True, model_type=model_type
     )
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
         model=model,
         loss_object=loss_object,
-        dataset=unbatched_dataset,
+        dataset=evaluation_dataset,
         existing_graph_edges=existing_graph_edges,
         output_directory=outputs_folder,
         learning_rate_scheduler=learning_rate_scheduler,
@@ -165,7 +163,7 @@ def _create_embeddings_config(
     position_embeddings_path=gin.REQUIRED,
     special_token_embeddings_path=gin.REQUIRED,
 ):
-    dataset = _create_dataset(DatasetType.TRAINING, model_type)
+    dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1)
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
     )
@@ -214,7 +212,6 @@ def create_knowledge_base_state(
     training_dataset = _create_dataset(
         DatasetType.TRAINING,
         batch_size=gin.REQUIRED,
-        repeat_samples=True,
         shuffle_dataset=True,
         model_type=model_type,
         sample_weights_model=sample_weights_model,

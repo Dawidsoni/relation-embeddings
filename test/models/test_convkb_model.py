@@ -29,7 +29,10 @@ class TestConvKBModel(tf.test.TestCase):
         self.default_kernel = np.array([[[[1.0]], [[1.0]], [[-1.0]]]])
         self.default_bias = np.array([0.0])
         edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
-        self.model_inputs = np.array(([[0, 0, 1], [1, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
+        self.model_inputs = {
+            "object_ids": tf.constant([[0, 0, 1], [1, 1, 2]], dtype=tf.int32),
+            "object_types": tf.constant([edge_object_type, edge_object_type], dtype=tf.int32)
+        }
 
     def test_outputs(self):
         model_config = ConvModelConfig(include_reduce_dim_layer=False)

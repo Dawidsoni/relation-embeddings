@@ -146,8 +146,7 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
         return tf.gather(merged_embeddings, padded_object_ids)
 
     def call(self, inputs, **kwargs):
-        object_ids, object_types = inputs
-        embeddings = self._extract_object_embeddings(object_ids, object_types)
+        embeddings = self._extract_object_embeddings(inputs["object_ids"], inputs["object_types"])
         if self.config.use_position_embeddings:
             position_embeddings = self.position_embeddings_layer(embeddings)
             embeddings = embeddings + position_embeddings

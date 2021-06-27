@@ -1,6 +1,5 @@
 import tensorflow as tf
 import gin.tf
-import numpy as np
 
 from layers.embeddings_layers import EmbeddingsConfig, ObjectType
 from models.conv_base_model import ConvModelConfig
@@ -25,7 +24,10 @@ class TestTransformerTranseModel(tf.test.TestCase):
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
         model = TransformerTranseModel(embeddings_config, model_config)
         edge_object_type = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
-        inputs = np.array(([[0, 0, 1], [1, 1, 2]], [edge_object_type, edge_object_type]), dtype=np.int32)
+        inputs = {
+            "object_ids": tf.constant([[0, 0, 1], [1, 1, 2]], dtype=tf.int32),
+            "object_types": tf.constant([edge_object_type, edge_object_type], dtype=tf.int32),
+        }
         outputs = model(inputs)
         self.assertAllEqual((2, 4), outputs.shape)
 
