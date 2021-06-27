@@ -62,8 +62,8 @@ class Dataset(object):
     def _extract_edges_from_file(self, dataset_type):
         dataset_types_filenames = {
             DatasetType.TRAINING: Dataset.TRAINING_DATASET_FILENAME,
-            DatasetType.VALIDATION: Dataset.TRAINING_DATASET_FILENAME,
-            DatasetType.TEST: Dataset.TRAINING_DATASET_FILENAME,
+            DatasetType.VALIDATION: Dataset.VALIDATION_DATASET_FILENAME,
+            DatasetType.TEST: Dataset.TEST_DATASET_FILENAME,
         }
         if dataset_type not in dataset_types_filenames:
             raise ValueError(f"Expected an instance of DatasetType, got {self.dataset_type}")
