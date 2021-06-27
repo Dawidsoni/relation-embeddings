@@ -248,6 +248,4 @@ class MaskedEntityDataset(SoftmaxDataset):
         head_samples = self._get_masked_dataset(mask_index=0)
         tail_samples = self._get_masked_dataset(mask_index=2)
         merged_samples = head_samples.concatenate(tail_samples)
-        if self.shuffle_dataset:
-            merged_samples = merged_samples.shuffle(buffer_size=10_000)
         return merged_samples
