@@ -61,7 +61,7 @@ class TestDatasets(tf.test.TestCase):
             repeat_samples=True,
             sample_weights_model=sample_weights_model_mock,
             sample_weights_loss_object=NormLossObject(order=1, margin=3.0),
-            weights_candidates_count=2
+            sample_weights_count=2
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
