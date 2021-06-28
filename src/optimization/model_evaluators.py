@@ -4,7 +4,7 @@ import tensorflow as tf
 import itertools
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
-from optimization.datasets import SamplingDataset, Dataset, SoftmaxDataset
+from optimization.datasets import SamplingEdgeDataset, Dataset, SoftmaxDataset
 from optimization.edges_producer import EdgesProducer
 from optimization.evaluation_metrics import EvaluationMetrics
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
@@ -70,7 +70,7 @@ class SamplingModelEvaluator(ModelEvaluator):
         self,
         model: KnowledgeCompletionModel,
         loss_object: SamplingLossObject,
-        dataset: SamplingDataset,
+        dataset: SamplingEdgeDataset,
         existing_graph_edges: List[Tuple],
         output_directory: str,
         learning_rate_scheduler: Optional[LearningRateSchedule] = None,

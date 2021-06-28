@@ -4,7 +4,7 @@ import tensorflow as tf
 import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
-from optimization.datasets import SamplingDataset, DatasetType
+from optimization.datasets import SamplingEdgeDataset, DatasetType
 from optimization.model_evaluators import SamplingModelEvaluator
 from optimization.loss_objects import NormLossObject
 from models.transe_model import TranseModel
@@ -30,7 +30,7 @@ class TestModelEvaluators(tf.test.TestCase):
         learning_rate_scheduler = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=1e-3, decay_steps=1, decay_rate=0.5
         )
-        dataset = SamplingDataset(
+        dataset = SamplingEdgeDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH
         )
         model_evaluator = SamplingModelEvaluator(

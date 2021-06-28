@@ -14,7 +14,7 @@ from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
 from models.transformer_transe_model import TransformerTranseModel
-from optimization.datasets import Dataset, SamplingDataset, DatasetType
+from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject
 from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator
 from optimization.model_trainers import ModelTrainer, SamplingModelTrainer
@@ -77,7 +77,7 @@ def _create_dataset(
     sample_weights_loss_object=None,
 ):
     sampling_dataset_initializer = functools.partial(
-        SamplingDataset,
+        SamplingEdgeDataset,
         dataset_type=dataset_type,
         data_directory=gin.REQUIRED,
         batch_size=batch_size,

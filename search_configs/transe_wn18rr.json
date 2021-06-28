@@ -5,7 +5,7 @@
             "parameter_values": [4.0, 5.0, 6.0, 7.0, 8.0]
         },
         {
-            "parameter_name": "SamplingDataset.batch_size",
+            "parameter_name": "SamplingEdgeDataset.batch_size",
             "parameter_values": [500, 1000, 3000]
         },
         {
@@ -51,7 +51,7 @@
             "parameter_values": [50000]
         },
         {
-            "parameter_name": "SamplingDataset.negatives_per_positive",
+            "parameter_name": "SamplingEdgeDataset.negatives_per_positive",
             "parameter_values": [3, 5, 6, 8, 10]
         },
         {

@@ -96,8 +96,12 @@ class Dataset(object):
         pass
 
 
+class SamplingDataset(Dataset, metaclass=ABCMeta):
+    pass
+
+
 @gin.configurable(blacklist=['sample_weights_model', 'sample_weights_loss_object'])
-class SamplingDataset(Dataset):
+class SamplingEdgeDataset(Dataset):
     MAX_ITERATIONS = 1000
     EDGE_OBJECT_TYPES = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
 
@@ -106,7 +110,7 @@ class SamplingDataset(Dataset):
         negatives_per_positive=1, sample_weights_model=None, sample_weights_loss_object=None,
         sample_weights_count=100
     ):
-        super(SamplingDataset, self).__init__(dataset_type, data_directory, batch_size, shuffle_dataset)
+        super(SamplingEdgeDataset, self).__init__(dataset_type, data_directory, batch_size, shuffle_dataset)
         self.negatives_per_positive = negatives_per_positive
         self.sample_weights_model = sample_weights_model
         self.sample_weights_loss_object = sample_weights_loss_object

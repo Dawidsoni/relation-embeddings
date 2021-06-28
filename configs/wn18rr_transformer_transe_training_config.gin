@@ -1,7 +1,7 @@
 # Dataset
 
-SamplingDataset.data_directory = "../data/WN18RR"
-SamplingDataset.batch_size = 512
+SamplingEdgeDataset.data_directory = "../data/WN18RR"
+SamplingEdgeDataset.batch_size = 512
 
 
 # LossObject

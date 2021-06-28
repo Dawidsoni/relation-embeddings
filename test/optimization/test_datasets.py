@@ -4,7 +4,7 @@ import tensorflow as tf
 import gin.tf
 import numpy as np
 
-from optimization.datasets import DatasetType, MaskedEntityDataset, SamplingDataset
+from optimization.datasets import DatasetType, MaskedEntityDataset, SamplingEdgeDataset
 from layers.embeddings_layers import ObjectType
 from optimization.loss_objects import NormLossObject
 
@@ -21,7 +21,7 @@ class TestDatasets(tf.test.TestCase):
 
     def test_sampling_dataset(self):
         np.random.seed(2)
-        dataset = SamplingDataset(
+        dataset = SamplingEdgeDataset(
             dataset_type=DatasetType.TRAINING,
             data_directory=self.DATASET_PATH,
             shuffle_dataset=False,
@@ -52,7 +52,7 @@ class TestDatasets(tf.test.TestCase):
 
     def test_sampling_dataset_sample_weights_model(self):
         sample_weights_model_mock = MagicMock(return_value=tf.random.uniform(shape=(4, 3)))
-        dataset = SamplingDataset(
+        dataset = SamplingEdgeDataset(
             dataset_type=DatasetType.TRAINING,
             data_directory=self.DATASET_PATH,
             shuffle_dataset=False,

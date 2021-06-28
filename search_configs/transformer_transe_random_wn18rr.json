@@ -1,7 +1,7 @@
 {
     "parameter_configs": [
         {
-            "parameter_name": "SamplingDataset.batch_size",
+            "parameter_name": "SamplingEdgeDataset.batch_size",
             "parameter_values": [2000, 3000]
         },
         {

@@ -6,7 +6,7 @@ import gin.tf
 
 from layers.embeddings_layers import ObjectType
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
-from optimization.datasets import SamplingDataset, DatasetType
+from optimization.datasets import SamplingEdgeDataset, DatasetType
 from optimization.model_trainers import SamplingModelTrainer
 from optimization.loss_objects import NormLossObject
 from models.transe_model import TranseModel
@@ -37,7 +37,7 @@ class TestModelTrainers(tf.test.TestCase):
         )
         transe_model = TranseModel(embeddings_config, model_config)
         model_trainer = SamplingModelTrainer(transe_model, loss_object, learning_rate_schedule)
-        dataset = SamplingDataset(
+        dataset = SamplingEdgeDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=2
         )
         samples_iterator = iter(dataset.samples)
@@ -54,7 +54,7 @@ class TestModelTrainers(tf.test.TestCase):
     @mock.patch.object(tf.keras.optimizers, 'Adam')
     def test_sampling_trainer_multiple_negatives(self, unused_adam_mock, unused_gradient_tape_mock):
         np.random.seed(2)
-        dataset = SamplingDataset(
+        dataset = SamplingEdgeDataset(
             dataset_type=DatasetType.TRAINING,
             data_directory=self.DATASET_PATH,
             batch_size=4,
