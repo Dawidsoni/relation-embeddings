@@ -1,3 +1,5 @@
+import collections
+import itertools
 from abc import abstractmethod, ABCMeta
 import enum
 import os
@@ -56,8 +58,24 @@ class Dataset(object):
         self.ids_of_relations = list(self.relation_ids.values())
         self.graph_edges = self._get_graph_edges(incremental_graph=False)
         self.set_of_graph_edges = set(self.graph_edges)
+        self.entity_output_edges = self._create_entity_output_edges(self.graph_edges)
+        self.entity_input_edges = self._create_entity_input_edges(self.graph_edges)
         self.incremental_graph_edges = self._get_graph_edges(incremental_graph=True)
+        self.incremental_entity_output_edges = self._create_entity_output_edges(self.incremental_graph_edges)
+        self.incremental_entity_input_edges = self._create_entity_input_edges(self.incremental_graph_edges)
         self.set_of_incremental_graph_edges = set(self.incremental_graph_edges)
+
+    def _create_entity_output_edges(self, edges):
+        entity_output_edges = collections.defaultdict(list)
+        for edge in edges:
+            entity_output_edges[edge[0]].append((edge[2], edge[1]))
+        return entity_output_edges
+
+    def _create_entity_input_edges(self, edges):
+        entity_input_edges = collections.defaultdict(list)
+        for edge in edges:
+            entity_input_edges[edge[2]].append((edge[0], edge[1]))
+        return entity_input_edges
 
     def _extract_edges_from_file(self, dataset_type):
         dataset_types_filenames = {
@@ -197,6 +215,66 @@ class SamplingEdgeDataset(Dataset):
         if self.sample_weights_model is not None:
             samples = samples.map(self._pick_samples_using_model)
         return samples
+
+
+class SamplingNeighboursDataset(SamplingEdgeDataset):
+
+    def __init__(
+        self, dataset_type, data_directory, batch_size, neighbours_per_sample, shuffle_dataset=False, **kwargs
+    ):
+        super(SamplingNeighboursDataset, self).__init__(
+            dataset_type, data_directory, batch_size, shuffle_dataset, **kwargs
+        )
+        self.neighbours_per_sample = neighbours_per_sample
+
+    def _sample_edges(self, entity_id, relation_id, entity_edges):
+        if len(entity_edges) >= self.neighbours_per_sample:
+            return list(itertools.chain(*np.random.choice(
+                entity_edges, size=self.neighbours_per_sample, replace=False
+            )))
+        missing_edges = [(entity_id, relation_id) for _ in range(self.neighbours_per_sample - len(entity_edges))]
+        return list(itertools.chain(*entity_edges)) + list(itertools.chain(*missing_edges))
+
+    def _sample_neighbours(self, object_ids):
+        updated_object_ids = []
+        for head_id, relation_id, tail_id in object_ids.numpy():
+            sampled_output_edges = self._sample_edges(
+                head_id, relation_id, self.incremental_entity_output_edges[head_id]
+            )
+            sampled_input_edges = self._sample_edges(
+                tail_id, relation_id, self.incremental_entity_input_edges[tail_id]
+            )
+            updated_object_ids.append([head_id, relation_id, tail_id] + sampled_output_edges + sampled_input_edges)
+        return np.array(updated_object_ids)
+
+    def _get_updated_edges_object_types(self, samples_count):
+        updated_edge = self.EDGE_OBJECT_TYPES + list(itertools.chain(*[
+            [ObjectType.ENTITY.value, ObjectType.RELATION.value] for _ in range(2 * self.neighbours_per_sample)
+        ]))
+        return tf.tile(tf.expand_dims(updated_edge, axis=0), multiples=[samples_count, 1])
+
+    def _include_neighbours_in_edges(self, edges):
+        updated_edges = {
+            "object_ids": tf.py_function(self._sample_neighbours, inp=[edges["object_ids"]], Tout=tf.int32),
+            "object_types": self._get_updated_edges_object_types(samples_count=tf.shape(edges["object_types"])[0])
+        }
+        for key, values in edges.items():
+            if key in updated_edges:
+                continue
+            updated_edges[key] = values
+        return updated_edges
+
+    def _map_batched_samples(self, positive_edges, array_of_negative_edges):
+        positive_edges = self._include_neighbours_in_edges(positive_edges)
+        array_of_negative_edges = tuple([
+             self._include_neighbours_in_edges(edges) for edges in array_of_negative_edges
+        ])
+        return positive_edges, array_of_negative_edges
+
+    @property
+    def samples(self):
+        edge_samples = super(SamplingNeighboursDataset, self).samples
+        return edge_samples.map(self._map_batched_samples)
 
 
 class SoftmaxDataset(Dataset, metaclass=ABCMeta):

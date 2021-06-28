@@ -4,7 +4,7 @@ import tensorflow as tf
 import gin.tf
 import numpy as np
 
-from optimization.datasets import DatasetType, MaskedEntityDataset, SamplingEdgeDataset
+from optimization.datasets import DatasetType, MaskedEntityDataset, SamplingEdgeDataset, SamplingNeighboursDataset
 from layers.embeddings_layers import ObjectType
 from optimization.loss_objects import NormLossObject
 
@@ -70,6 +70,16 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual(tf.broadcast_to(self.edge_object_types, shape=(4, 3)), pos_samples1["object_types"])
         self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["object_ids"])
         self.assertAllEqual(tf.broadcast_to(self.edge_object_types, shape=(4, 3)),  pos_samples2["object_types"])
+
+    def test_sampling_neighbours_dataset(self):
+        np.random.seed(2)
+        dataset = SamplingNeighboursDataset(
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False,
+            negatives_per_positive=2, batch_size=4, neighbours_per_sample=2
+        )
+        samples_iterator = iter(dataset.samples)
+        batch1 = next(samples_iterator)
+        print(batch1)
 
     def test_masked_dataset(self):
         dataset = MaskedEntityDataset(
