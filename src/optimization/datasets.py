@@ -121,7 +121,7 @@ class SamplingDataset(Dataset, metaclass=ABCMeta):
 @gin.configurable(blacklist=['sample_weights_model', 'sample_weights_loss_object'])
 class SamplingEdgeDataset(Dataset):
     MAX_ITERATIONS = 1000
-    EDGE_OBJECT_TYPES = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
+    EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
@@ -136,7 +136,7 @@ class SamplingEdgeDataset(Dataset):
 
     def _get_positive_samples_dataset(self):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
-        raw_dataset = raw_dataset.map(lambda x: {"object_ids": x, "object_types": self.EDGE_OBJECT_TYPES})
+        raw_dataset = raw_dataset.map(lambda x: {"object_ids": x, "object_types": list(self.EDGE_OBJECT_TYPES)})
         return self._get_processed_dataset(raw_dataset)
 
     def _generate_negative_samples(self, negatives_per_positive):
@@ -159,7 +159,7 @@ class SamplingEdgeDataset(Dataset):
                 for produced_edge in produced_edges:
                     yield {
                         "object_ids": produced_edge,
-                        "object_types": self.EDGE_OBJECT_TYPES,
+                        "object_types": list(self.EDGE_OBJECT_TYPES),
                         "head_swapped": is_head_to_be_swapped,
                     }
 
@@ -218,6 +218,9 @@ class SamplingEdgeDataset(Dataset):
 
 
 class SamplingNeighboursDataset(SamplingEdgeDataset):
+    MISSING_EDGE_ENTITY_ID = 0
+    MISSING_EDGE_RELATION_ID = 1
+    NEIGHBOUR_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value)
 
     def __init__(
         self, dataset_type, data_directory, batch_size, neighbours_per_sample, shuffle_dataset=False, **kwargs
@@ -227,36 +230,54 @@ class SamplingNeighboursDataset(SamplingEdgeDataset):
         )
         self.neighbours_per_sample = neighbours_per_sample
 
-    def _sample_edges(self, entity_id, relation_id, entity_edges):
-        if len(entity_edges) >= self.neighbours_per_sample:
-            return list(itertools.chain(*np.random.choice(
-                entity_edges, size=self.neighbours_per_sample, replace=False
+    def _sample_edges(self, edges, banned_edges):
+        if len(edges) > self.neighbours_per_sample:
+            chosen_indexes = np.random.choice(len(edges), size=self.neighbours_per_sample + 1, replace=False)
+            chosen_edges = [edges[index] for index in chosen_indexes if edges[index] not in banned_edges]
+            return list(itertools.chain(*chosen_edges[:self.neighbours_per_sample])), 0
+        chosen_edges = [edge for edge in edges if edge not in banned_edges]
+        missing_edges = [
+            (self.MISSING_EDGE_ENTITY_ID, self.MISSING_EDGE_RELATION_ID)
+            for _ in range(self.neighbours_per_sample - len(chosen_edges))
+        ]
+        edges = list(itertools.chain(*chosen_edges)) + list(itertools.chain(*missing_edges))
+        return edges, len(missing_edges)
+
+    def _produce_object_ids_with_types(self, edges):
+        object_ids, object_types = [], []
+        for head_id, relation_id, tail_id in edges.numpy():
+            sampled_output_edges, missing_output_edges_count = self._sample_edges(
+                self.incremental_entity_output_edges[head_id], banned_edges=[(tail_id, relation_id)]
+            )
+            sampled_input_edges, missing_input_edges_count = self._sample_edges(
+                self.incremental_entity_input_edges[tail_id], banned_edges=[(head_id, relation_id)]
+            )
+            object_ids.append([head_id, relation_id, tail_id] + sampled_output_edges + sampled_input_edges)
+            outputs_types = list(np.concatenate((
+                np.tile(self.NEIGHBOUR_OBJECT_TYPES, reps=self.neighbours_per_sample - missing_output_edges_count),
+                np.tile(ObjectType.SPECIAL_TOKEN.value, reps=2 * missing_output_edges_count),
             )))
-        missing_edges = [(entity_id, relation_id) for _ in range(self.neighbours_per_sample - len(entity_edges))]
-        return list(itertools.chain(*entity_edges)) + list(itertools.chain(*missing_edges))
+            inputs_types = list(np.concatenate((
+                np.tile(self.NEIGHBOUR_OBJECT_TYPES, reps=self.neighbours_per_sample - missing_input_edges_count),
+                np.tile(ObjectType.SPECIAL_TOKEN.value, reps=2 * missing_input_edges_count),
+            )))
+            object_types.append(list(self.EDGE_OBJECT_TYPES) + outputs_types + inputs_types)
+        return np.array(object_ids), np.array(object_types)
 
-    def _sample_neighbours(self, object_ids):
-        updated_object_ids = []
-        for head_id, relation_id, tail_id in object_ids.numpy():
-            sampled_output_edges = self._sample_edges(
-                head_id, relation_id, self.incremental_entity_output_edges[head_id]
-            )
-            sampled_input_edges = self._sample_edges(
-                tail_id, relation_id, self.incremental_entity_input_edges[tail_id]
-            )
-            updated_object_ids.append([head_id, relation_id, tail_id] + sampled_output_edges + sampled_input_edges)
-        return np.array(updated_object_ids)
-
-    def _get_updated_edges_object_types(self, samples_count):
-        updated_edge = self.EDGE_OBJECT_TYPES + list(itertools.chain(*[
-            [ObjectType.ENTITY.value, ObjectType.RELATION.value] for _ in range(2 * self.neighbours_per_sample)
-        ]))
-        return tf.tile(tf.expand_dims(updated_edge, axis=0), multiples=[samples_count, 1])
+    def _produce_positions(self, samples_count):
+        outputs_positions = list(itertools.chain(*[(3, 4) for _ in range(self.neighbours_per_sample)]))
+        inputs_positions = list(itertools.chain(*[(5, 6) for _ in range(self.neighbours_per_sample)]))
+        positions = [0, 1, 2] + outputs_positions + inputs_positions
+        return tf.tile(tf.expand_dims(positions, axis=0), multiples=[samples_count, 1])
 
     def _include_neighbours_in_edges(self, edges):
+        object_ids, object_types = tf.py_function(
+            self._produce_object_ids_with_types, inp=[edges["object_ids"]], Tout=(tf.int32, tf.int32)
+        )
         updated_edges = {
-            "object_ids": tf.py_function(self._sample_neighbours, inp=[edges["object_ids"]], Tout=tf.int32),
-            "object_types": self._get_updated_edges_object_types(samples_count=tf.shape(edges["object_types"])[0])
+            "object_ids": object_ids,
+            "object_types": object_types,
+            "positions": self._produce_positions(samples_count=tf.shape(edges["object_ids"])[0]),
         }
         for key, values in edges.items():
             if key in updated_edges:

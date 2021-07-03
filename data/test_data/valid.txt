@@ -1,1 +1,3 @@
-/m/017dcd /location/country/form_of_government /m/027rn
+/m/017dcd	/location/country/form_of_government	/m/027rn
+/m/027rn	/tv/tv_program/regular_cast./tv/regular_tv_appearance/actor	/m/017dcd
+/m/027rn	/location/country/form_of_government	/m/017dcd

@@ -19,6 +19,20 @@ class TestDatasets(tf.test.TestCase):
         """)
         self.edge_object_types = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
 
+    def test_incremental_edges(self):
+        np.random.seed(2)
+        dataset = SamplingEdgeDataset(
+            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
+        )
+        self.assertDictEqual(
+            dataset.incremental_entity_output_edges,
+            {0: [(1, 0), (2, 1), (2, 0)], 1: [(2, 1)], 2: [(0, 0)]}
+        )
+        self.assertDictEqual(
+            dataset.incremental_entity_input_edges,
+            {0: [(2, 0)], 1: [(0, 0)], 2: [(1, 1), (0, 1), (0, 0)]}
+        )
+
     def test_sampling_dataset(self):
         np.random.seed(2)
         dataset = SamplingEdgeDataset(
@@ -74,12 +88,47 @@ class TestDatasets(tf.test.TestCase):
     def test_sampling_neighbours_dataset(self):
         np.random.seed(2)
         dataset = SamplingNeighboursDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False,
-            negatives_per_positive=2, batch_size=4, neighbours_per_sample=2
+            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
+            negatives_per_positive=1, batch_size=3, neighbours_per_sample=2
         )
-        samples_iterator = iter(dataset.samples)
-        batch1 = next(samples_iterator)
-        print(batch1)
+        samples_batch = next(iter(dataset.samples))
+        positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
+        self.assertAllEqual(
+            np.array([[2, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
+                      [0, 1, 2, 2, 0, 1, 0, 1, 1, 0, 0],
+                      [0, 0, 2, 2, 1, 1, 0, 1, 1, 0, 1]]),
+            positive_samples["object_ids"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2],
+                      [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1],
+                      [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1]]),
+            positive_samples["object_types"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
+                      [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
+                      [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6]]),
+            positive_samples["positions"]
+        )
+        self.assertAllEqual(
+            np.array([[2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+                      [1, 1, 2, 0, 1, 0, 1, 0, 0, 0, 1],
+                      [2, 0, 2, 0, 0, 0, 1, 0, 1, 0, 0]]),
+            negative_samples["object_ids"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 0, 0, 1, 2, 2, 0, 1, 2, 2],
+                      [0, 1, 0, 2, 2, 2, 2, 0, 1, 0, 1],
+                      [0, 1, 0, 0, 1, 2, 2, 0, 1, 0, 1]]),
+            negative_samples["object_types"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
+                      [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
+                      [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6]]),
+            negative_samples["positions"]
+        )
 
     def test_masked_dataset(self):
         dataset = MaskedEntityDataset(
