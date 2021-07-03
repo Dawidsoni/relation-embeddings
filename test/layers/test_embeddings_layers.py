@@ -121,6 +121,25 @@ class TestEmbeddingsLayers(tf.test.TestCase):
         self.assertAllEqual(layer.entity_embeddings[2] + position_embeddings[0], outputs[1, 0])
         self.assertAllEqual(layer.special_token_embeddings[0] + position_embeddings[1], outputs[1, 1])
 
+    def test_embeddings_extraction_layer_custom_position_embeddings(self):
+        layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
+            entities_count=3, relations_count=2, embeddings_dimension=4,
+            use_special_token_embeddings=True, use_position_embeddings=True,
+        ))
+        inputs = {
+            "object_ids": tf.constant([[1, 0], [2, 0]], dtype=tf.int32),
+            "object_types": tf.constant(
+                [[ObjectType.RELATION.value, ObjectType.ENTITY.value],
+                 [ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value]], dtype=tf.int32),
+            "positions": tf.constant([[0, 2], [1, 0]], dtype=tf.int32),
+        }
+        outputs = layer(inputs)
+        position_embeddings = layer.position_embeddings_layer.position_embeddings
+        self.assertAllEqual(layer.relation_embeddings[1] + position_embeddings[0], outputs[0, 0])
+        self.assertAllEqual(layer.entity_embeddings[0] + position_embeddings[2], outputs[0, 1])
+        self.assertAllEqual(layer.entity_embeddings[2] + position_embeddings[1], outputs[1, 0])
+        self.assertAllEqual(layer.special_token_embeddings[0] + position_embeddings[0], outputs[1, 1])
+
     def test_embeddings_extraction_layer_special_token_embeddings_used(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True
@@ -162,4 +181,3 @@ class TestEmbeddingsLayers(tf.test.TestCase):
             use_position_embeddings=True, use_fourier_series_in_position_embeddings=True,
         ))
         self.assertTrue(layer.position_embeddings_layer.use_fourier_series)
-

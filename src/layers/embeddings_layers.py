@@ -75,9 +75,12 @@ class PositionEmbeddingsLayer(tf.keras.layers.Layer):
             dtype=tf.float32,
         )
 
-    def call(self, inputs, training=None):
-        inputs_length = tf.shape(inputs)[-2]
-        chosen_embeddings = self.position_embeddings[:inputs_length, :]
+    def call(self, inputs, positions=None, training=None):
+        if positions is None:
+            inputs_length = tf.shape(inputs)[-2]
+            chosen_embeddings = self.position_embeddings[:inputs_length, :]
+        else:
+            chosen_embeddings = tf.gather(self.position_embeddings, positions)
         return tf.broadcast_to(chosen_embeddings, tf.shape(inputs))
 
 
@@ -145,9 +148,13 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
         padded_object_ids = object_ids + offsets
         return tf.gather(merged_embeddings, padded_object_ids)
 
+    def _maybe_add_position_embeddings(self, inputs, embeddings):
+        if not self.config.use_position_embeddings:
+            return embeddings
+        if "positions" in inputs:
+            return embeddings + self.position_embeddings_layer(embeddings, positions=inputs["positions"])
+        return embeddings + self.position_embeddings_layer(embeddings)
+
     def call(self, inputs, **kwargs):
         embeddings = self._extract_object_embeddings(inputs["object_ids"], inputs["object_types"])
-        if self.config.use_position_embeddings:
-            position_embeddings = self.position_embeddings_layer(embeddings)
-            embeddings = embeddings + position_embeddings
-        return embeddings
+        return self._maybe_add_position_embeddings(inputs, embeddings)
