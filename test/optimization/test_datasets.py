@@ -4,7 +4,7 @@ import tensorflow as tf
 import gin.tf
 import numpy as np
 
-from optimization.datasets import DatasetType, MaskedEntityDataset, SamplingEdgeDataset, SamplingNeighboursDataset
+from optimization.datasets import DatasetType, MaskedEntityOfEdgeDataset, SamplingEdgeDataset, SamplingNeighboursDataset
 from layers.embeddings_layers import ObjectType
 from optimization.loss_objects import NormLossObject
 
@@ -162,18 +162,18 @@ class TestDatasets(tf.test.TestCase):
         )
 
     def test_masked_dataset(self):
-        dataset = MaskedEntityDataset(
+        dataset = MaskedEntityOfEdgeDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2
         )
-        # TODO: implement this dataset
-        # samples = list(iter(dataset.samples))
-        # inputs, outputs, ids_of_outputs, mask_indexes = list(zip(*samples))
-        # objects_ids, objects_types = list(zip(*inputs))
-        # self.assertAllEqual([[0, 0, 1], [0, 1, 2]], objects_ids[0])
-        # self.assertAllEqual([[0, 0, 0], [1, 1, 0]], objects_ids[1])
-        # self.assertAllEqual([[2, 1, 0], [2, 1, 0]], objects_types[0])
-        # self.assertAllEqual([[0, 1, 2], [0, 1, 2]], objects_types[1])
-        # self.assertAllEqual([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], outputs[0])
-        # self.assertAllEqual([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], outputs[1])
-        # self.assertAllEqual([[0, 1], [1, 2]], ids_of_outputs)
-        # self.assertAllEqual([[0, 0], [2, 2]], mask_indexes)
+        samples_iterator = iter(dataset.samples)
+        batch1, batch2 = next(samples_iterator), next(samples_iterator)
+        self.assertAllEqual(np.array([[0, 0, 1], [0, 0, 0]], dtype=np.int32), batch1["object_ids"])
+        self.assertAllEqual(np.array([[2, 1, 0], [0, 1, 2]], dtype=np.int32), batch1["object_types"])
+        self.assertAllEqual(np.array([0, 2], dtype=np.int32), batch1["mask_index"])
+        self.assertAllEqual(np.array([[1., 0., 0.], [0., 1., 0.]], dtype=np.float32), batch1["one_hot_output"])
+        self.assertAllEqual(np.array([0, 1], dtype=np.int32), batch1["output_index"])
+        self.assertAllEqual(np.array([[0, 1, 2], [1, 1, 0]], dtype=np.int32), batch2["object_ids"])
+        self.assertAllEqual(np.array([[2, 1, 0], [0, 1, 2]], dtype=np.int32), batch2["object_types"])
+        self.assertAllEqual(np.array([0, 2], dtype=np.int32), batch2["mask_index"])
+        self.assertAllEqual(np.array([[0., 1., 0.], [0., 0., 1.]], dtype=np.float32), batch2["one_hot_output"])
+        self.assertAllEqual(np.array([1, 2], dtype=np.int32), batch2["output_index"])

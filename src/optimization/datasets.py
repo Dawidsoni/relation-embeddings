@@ -29,13 +29,10 @@ def _get_int_random_variables_iterator(low, high, batch_size=100_000):
             yield random_variable
 
 
-def get_outputs_for_sampling_dataset(training_samples, model, training):
-    positive_inputs, batched_negative_inputs = training_samples
-    positive_outputs = model(positive_inputs, training=training)
-    array_of_negative_outputs = []
-    for negative_inputs in tf.unstack(tf.stack(batched_negative_inputs), axis=2):
-        array_of_negative_outputs.append(model(negative_inputs, training=training))
-    return positive_outputs, array_of_negative_outputs
+def _interleave_datasets(dataset1, dataset2):
+    return tf.data.Dataset.zip((dataset1, dataset2)).flat_map(
+        lambda x1, x2: tf.data.Dataset.from_tensors(x1).concatenate(tf.data.Dataset.from_tensors(x2))
+    )
 
 
 class Dataset(object):
@@ -44,6 +41,7 @@ class Dataset(object):
     TRAINING_DATASET_FILENAME = "train.txt"
     VALIDATION_DATASET_FILENAME = "valid.txt"
     TEST_DATASET_FILENAME = "test.txt"
+    EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
     def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False):
         self.dataset_type = dataset_type
@@ -54,6 +52,7 @@ class Dataset(object):
         relations_df = pd.read_table(os.path.join(data_directory, self.RELATIONS_IDS_FILENAME), header=None)
         self.entity_ids = dict(zip(entities_df[0], entities_df[1]))
         self.ids_of_entities = list(self.entity_ids.values())
+        self.entities_count = max(self.ids_of_entities) + 1
         self.relation_ids = dict(zip(relations_df[0], relations_df[1]))
         self.ids_of_relations = list(self.relation_ids.values())
         self.graph_edges = self._extract_edges_from_file(dataset_type=self.dataset_type)
@@ -111,7 +110,6 @@ class SamplingDataset(Dataset, metaclass=ABCMeta):
 @gin.configurable(blacklist=['sample_weights_model', 'sample_weights_loss_object'])
 class SamplingEdgeDataset(Dataset):
     MAX_ITERATIONS = 1000
-    EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
@@ -131,7 +129,7 @@ class SamplingEdgeDataset(Dataset):
 
     def _generate_negative_samples(self, negatives_per_positive):
         random_binary_variable_iterator = _get_int_random_variables_iterator(low=0, high=2)
-        random_entity_index_iterator = _get_int_random_variables_iterator(low=0, high=max(self.ids_of_entities) + 1)
+        random_entity_index_iterator = _get_int_random_variables_iterator(low=0, high=self.entities_count)
         for entity_head, relation, entity_tail in self.graph_edges:
             is_head_to_be_swapped = next(random_binary_variable_iterator)
             produced_edges = []
@@ -294,52 +292,46 @@ class SoftmaxDataset(Dataset, metaclass=ABCMeta):
 
 
 @gin.configurable
-class MaskedEntityDataset(SoftmaxDataset):
+class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False
     ):
-        super(MaskedEntityDataset, self).__init__(
+        super(MaskedEntityOfEdgeDataset, self).__init__(
             dataset_type, data_directory, batch_size, shuffle_dataset
         )
 
-    def _edge_to_output(self, edge, mask_index):
-        object_id = edge[mask_index]
-        if self.evaluation_mode:
-            return object_id
-        return _get_one_hot_encoded_vector(length=max(self.ids_of_entities) + 1, one_hot_ids=[object_id])
+    def _get_sample_specification(self):
+        return {
+            "object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
+            "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
+            "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
+            "one_hot_output": tf.TensorSpec(shape=(self.entities_count, ), dtype=tf.float32),
+            "output_index": tf.TensorSpec(shape=(), dtype=tf.int32),
+        }
 
-    def _get_input_object_types(self, mask_index):
-        object_types = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
-        object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
-        return object_types
-
-    def _get_masked_dataset(self, mask_index):
-        input_object_ids, outputs, ids_of_outputs = [], [], []
-        for raw_edge in self.graph_edges:
-            masked_edge = list(raw_edge).copy()
-            masked_edge[mask_index] = 0
-            input_object_ids.append(tuple(masked_edge))
-            outputs.append(_get_one_hot_encoded_vector(
-                length=max(self.ids_of_entities) + 1, one_hot_ids=raw_edge[mask_index]
-            ))
-            ids_of_outputs.append(raw_edge[mask_index])
-        input_objects_dataset = tf.data.Dataset.from_tensor_slices(input_object_ids)
-        object_types_dataset = tf.data.Dataset.from_tensor_slices([self._get_input_object_types(mask_index)]).repeat()
-        inputs_dataset = tf.data.Dataset.zip((input_objects_dataset, object_types_dataset))
-        outputs_dataset = tf.data.Dataset.from_tensor_slices(outputs)
-        ids_of_outputs_dataset = tf.data.Dataset.from_tensor_slices(ids_of_outputs)
-        mask_indexes_dataset = tf.data.Dataset.from_tensor_slices([mask_index]).repeat()
-        return tf.data.Dataset.zip((
-            self._get_processed_dataset(inputs_dataset),
-            self._get_processed_dataset(outputs_dataset),
-            self._get_processed_dataset(ids_of_outputs_dataset),
-            self._get_processed_dataset(mask_indexes_dataset),
-        ))
+    def _generate_samples(self, mask_index):
+        for head_id, relation_id, tail_id in self.graph_edges:
+            object_ids = [head_id, relation_id, tail_id]
+            output_index = object_ids[mask_index]
+            object_ids[mask_index] = 0
+            object_types = list(self.EDGE_OBJECT_TYPES)
+            object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+            yield {
+                "object_ids": object_ids,
+                "object_types": object_types,
+                "mask_index": mask_index,
+                "one_hot_output": _get_one_hot_encoded_vector(length=self.entities_count, one_hot_ids=[output_index]),
+                "output_index": output_index,
+            }
 
     @property
     def samples(self):
-        head_samples = self._get_masked_dataset(mask_index=0)
-        tail_samples = self._get_masked_dataset(mask_index=2)
-        merged_samples = head_samples.concatenate(tail_samples)
-        return merged_samples
+        sample_specification = self._get_sample_specification()
+        head_samples = tf.data.Dataset.from_generator(
+            lambda: self._generate_samples(mask_index=0), output_signature=sample_specification,
+        )
+        tail_samples = tf.data.Dataset.from_generator(
+            lambda: self._generate_samples(mask_index=2), output_signature=sample_specification,
+        )
+        return self._get_processed_dataset(_interleave_datasets(head_samples, tail_samples))
