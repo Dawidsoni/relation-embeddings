@@ -1,8 +1,12 @@
 {
     "parameter_configs": [
         {
-            "parameter_name": "SamplingEdgeDataset.batch_size",
-            "parameter_values": [2000, 3000]
+            "parameter_name": "SamplingNeighboursDataset.batch_size",
+            "parameter_values": [512, 1024, 2048, 4096]
+        },
+        {
+            "parameter_name": "SamplingNeighboursDataset.neighbours_per_sample",
+            "parameter_values": [3, 5, 10]
         },
         {
             "parameter_name": "NormLossObject.margin",
@@ -34,7 +38,7 @@
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.layers_count",
-            "parameter_values": [1, 2, 3]
+            "parameter_values": [1, 2, 3, 5]
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.attention_heads_count",
@@ -58,7 +62,7 @@
         },
         {
             "parameter_name": "transformer_transe/ConvModelConfig.normalize_embeddings",
-            "parameter_values": [true]
+            "parameter_values": [false, true]
         },
         {
             "parameter_name": "transformer_transe/ConvModelConfig.dropout_rate",

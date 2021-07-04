@@ -22,7 +22,8 @@ class TransformerTranseModel(TranseModel):
         if self.normalize_embeddings:
             outputs = tf.math.l2_normalize(outputs, axis=2)
         outputs = self.transformer_layer(outputs, training=training)
-        return self._transform_and_rate_embeddings(outputs, training=training)
+        edge_outputs = outputs[:, :3, :]
+        return self._transform_and_rate_embeddings(edge_outputs, training=training)
 
     def get_config(self):
         return {

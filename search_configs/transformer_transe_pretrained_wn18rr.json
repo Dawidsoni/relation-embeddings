@@ -1,12 +1,16 @@
 {
     "parameter_configs": [
         {
-            "parameter_name": "NormLossObject.margin",
-            "parameter_values": [5.0, 6.0, 7.0]
+            "parameter_name": "SamplingNeighboursDataset.batch_size",
+            "parameter_values": [256, 512, 1024]
         },
         {
-            "parameter_name": "SamplingEdgeDataset.batch_size",
-            "parameter_values": [250, 500, 1000]
+            "parameter_name": "SamplingNeighboursDataset.neighbours_per_sample",
+            "parameter_values": [3, 5, 10]
+        },
+        {
+            "parameter_name": "NormLossObject.margin",
+            "parameter_values": [5.0, 6.0, 7.0]
         },
         {
             "parameter_name": "_create_embeddings_config.entity_embeddings_path",
@@ -87,14 +91,6 @@
         {
             "parameter_name": "_create_learning_rate_schedule.decay_steps",
             "parameter_values": [50000]
-        },
-        {
-            "parameter_name": "SamplingEdgeDataset.negatives_per_positive",
-            "parameter_values": [3, 5, 10]
-        },
-        {
-            "parameter_name": "SamplingModelTrainer.negatives_reducer",
-            "parameter_values": ["@tf.reduce_max", "@tf.reduce_min"]
         }
     ],
     "banned_parameter_configs": [

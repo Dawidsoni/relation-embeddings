@@ -217,6 +217,7 @@ class SamplingEdgeDataset(Dataset):
         return samples
 
 
+@gin.configurable
 class SamplingNeighboursDataset(SamplingEdgeDataset):
     MISSING_EDGE_ENTITY_ID = 0
     MISSING_EDGE_RELATION_ID = 1

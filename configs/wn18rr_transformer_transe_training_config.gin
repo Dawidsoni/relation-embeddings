@@ -1,7 +1,8 @@
 # Dataset
 
-SamplingEdgeDataset.data_directory = "../data/WN18RR"
-SamplingEdgeDataset.batch_size = 512
+SamplingNeighboursDataset.data_directory = "../data/WN18RR"
+SamplingNeighboursDataset.batch_size = 512
+SamplingNeighboursDataset.neighbours_per_sample = 3
 
 
 # LossObject
@@ -17,7 +18,7 @@ NormLossObject.margin = 6.0
 EmbeddingsConfig.embeddings_dimension = 200
 EmbeddingsConfig.trainable_embeddings = True
 EmbeddingsConfig.use_position_embeddings = True
-EmbeddingsConfig.position_embeddings_max_inputs_length = 3
+EmbeddingsConfig.position_embeddings_max_inputs_length = 10
 EmbeddingsConfig.use_fourier_series_in_position_embeddings = False
 EmbeddingsConfig.position_embeddings_trainable = True
 _create_embeddings_config.entity_embeddings_path = None # "/pio/scratch/1/i279743/models/transe_wn18rr_margin_6_1608882960/entity_embeddings.npy"
@@ -54,7 +55,7 @@ _create_learning_rate_schedule.decay_rate = 1.0
 
 ExperimentConfig.experiment_name = "transformer_transe_wn18rr_baseline"
 ExperimentConfig.training_steps = 50_000
-ExperimentConfig.steps_per_evaluation = 2500
+ExperimentConfig.steps_per_evaluation = 500
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"

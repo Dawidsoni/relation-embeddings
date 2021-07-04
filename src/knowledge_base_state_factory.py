@@ -14,7 +14,7 @@ from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
 from models.transformer_transe_model import TransformerTranseModel
-from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType
+from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject
 from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator
 from optimization.model_trainers import ModelTrainer, SamplingModelTrainer
@@ -76,7 +76,7 @@ def _create_dataset(
     sample_weights_model=None,
     sample_weights_loss_object=None,
 ):
-    sampling_dataset_initializer = functools.partial(
+    sampling_edge_dataset_initializer = functools.partial(
         SamplingEdgeDataset,
         dataset_type=dataset_type,
         data_directory=gin.REQUIRED,
@@ -85,11 +85,21 @@ def _create_dataset(
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
     )
+    sampling_neighbours_dataset_initializer = functools.partial(
+        SamplingNeighboursDataset,
+        dataset_type=dataset_type,
+        data_directory=gin.REQUIRED,
+        batch_size=batch_size,
+        neighbours_per_sample=gin.REQUIRED,
+        shuffle_dataset=shuffle_dataset,
+        sample_weights_model=sample_weights_model,
+        sample_weights_loss_object=sample_weights_loss_object,
+    )
     type_mappings = {
-        ModelType.TRANSE: lambda: sampling_dataset_initializer(),
-        ModelType.STRANSE: lambda: sampling_dataset_initializer(),
-        ModelType.CONVKB: lambda: sampling_dataset_initializer(),
-        ModelType.TRANSFORMER_TRANSE: lambda: sampling_dataset_initializer(),
+        ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
+        ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
+        ModelType.CONVKB: lambda: sampling_edge_dataset_initializer(),
+        ModelType.TRANSFORMER_TRANSE: lambda: sampling_neighbours_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
