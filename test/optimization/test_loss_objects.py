@@ -74,40 +74,53 @@ class TestLossObjects(tf.test.TestCase):
         self.assertAllClose(0.28, loss_object.get_regularization_loss(transe_model))
 
     def test_binary_cross_entropy_loss_object_positive_losses(self):
-        loss_object = BinaryCrossEntropyLossObject()
+        loss_object = BinaryCrossEntropyLossObject(label_smoothing=0.0)
         self.assertAllClose(
             [0.006, 0.693, 5.007],
-            loss_object.get_losses_of_positive_samples(samples=np.array([[5.0], [0.0], [-5.0]])),
+            loss_object.get_losses_of_positive_samples(samples=np.array([[5.0], [0.0], [-5.0]], dtype=np.float32)),
             atol=1e-2,
         )
 
     def test_binary_cross_entropy_loss_object_pairs_losses(self):
-        loss_object = BinaryCrossEntropyLossObject()
+        loss_object = BinaryCrossEntropyLossObject(label_smoothing=0.0)
         pairs_losses = loss_object.get_losses_of_pairs(
-            positive_samples=np.array([[5.0], [0.0], [-5.0]]),
-            negative_samples=np.array([[5.0], [0.0], [-5.0]]),
+            positive_samples=np.array([[5.0], [0.0], [-5.0]], dtype=np.float32),
+            negative_samples=np.array([[5.0], [0.0], [-5.0]], dtype=np.float32),
         )
         self.assertAllClose([2.507, 0.693, 2.507], pairs_losses, atol=1e-2)
 
+    def test_binary_cross_entropy_loss_object_label_smoothing(self):
+        loss_object = BinaryCrossEntropyLossObject(label_smoothing=0.1)
+        self.assertAllClose(
+            [0.257, 0.693, 4.757],
+            loss_object.get_losses_of_positive_samples(samples=np.array([[5.0], [0.0], [-5.0]], dtype=np.float32)),
+            atol=1e-2,
+        )
+
     def test_cross_entropy_loss_object_predicted_loss(self):
         true_labels = np.array([[0, 1, 0], [0, 0, 1]], dtype=np.float32)
-        predictions = np.array([[0.05, 0.95, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
+        predictions = np.array([[0.1, 1.9, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
         loss_object = CrossEntropyLossObject(label_smoothing=0.0)
-        self.assertAllClose(1.176939, loss_object.get_mean_loss_of_samples(true_labels, predictions))
+        self.assertAllClose(
+            0.832, loss_object.get_mean_loss_of_samples(true_labels, predictions), atol=1e-3
+        )
 
     def test_cross_entropy_loss_object_label_smoothing(self):
         true_labels = np.array([[0, 1, 0], [0, 0, 1]], dtype=np.float32)
-        predictions = np.array([[0.05, 0.95, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
+        predictions = np.array([[0.1, 1.9, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
         loss_object = CrossEntropyLossObject(label_smoothing=0.1)
-        self.assertAllClose(1.459136, loss_object.get_mean_loss_of_samples(true_labels, predictions))
+        self.assertAllClose(
+            0.882, loss_object.get_mean_loss_of_samples(true_labels, predictions), atol=1e-3
+        )
 
     def test_cross_entropy_losses_of_samples(self):
         true_labels = np.array([[0, 1, 0], [0, 0, 1]], dtype=np.float32)
-        predictions = np.array([[0.05, 0.95, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
+        predictions = np.array([[0.1, 1.9, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
         loss_object = CrossEntropyLossObject(label_smoothing=0.1)
         self.assertAllClose(
-            [[0.95, 0.05, 1.0], [0.9, 0.2, 0.9]],
-            loss_object.get_losses_of_samples(true_labels, predictions)
+            np.array([0.397, 1.366], dtype=np.float32),
+            loss_object.get_losses_of_samples(true_labels, predictions),
+            atol=1e-3,
         )
 
 
