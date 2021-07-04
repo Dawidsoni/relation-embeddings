@@ -61,6 +61,33 @@ class SoftplusLossObject(SamplingLossObject):
         return tf.concat([positive_losses, negative_losses], axis=0) / 2.0
 
 
+@gin.configurable
+class BinaryCrossEntropyLossObject(SamplingLossObject):
+
+    def __init__(self):
+        super(BinaryCrossEntropyLossObject, self).__init__()
+        self.loss_function = tf.keras.losses.BinaryCrossentropy(
+            from_logits=True, reduction=tf.losses.Reduction.NONE
+        )
+
+    def _get_losses_of_samples(self, labels, samples):
+        if samples.shape[1] != 1:
+            raise ValueError('BinaryCrossEntropy metric is incompatible with embeddings of shape greater than 1')
+        return self.loss_function(y_true=labels, y_pred=samples)
+
+    def get_losses_of_positive_samples(self, samples):
+        return self._get_losses_of_samples(labels=tf.ones_like(samples, dtype=tf.int32), samples=samples)
+
+    def get_losses_of_pairs(self, positive_samples, negative_samples):
+        positive_losses = self._get_losses_of_samples(
+            labels=tf.ones_like(positive_samples, dtype=tf.int32), samples=positive_samples
+        )
+        negative_losses = self._get_losses_of_samples(
+            labels=tf.zeros_like(negative_samples, dtype=tf.int32), samples=negative_samples
+        )
+        return (positive_losses + negative_losses) / 2.0
+
+
 class SupervisedLossObject(LossObject):
 
     @abstractmethod

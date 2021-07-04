@@ -2,7 +2,8 @@ import numpy as np
 import tensorflow as tf
 import gin.tf
 
-from optimization.loss_objects import NormLossObject, SoftplusLossObject, CrossEntropyLossObject
+from optimization.loss_objects import NormLossObject, SoftplusLossObject, CrossEntropyLossObject, \
+    BinaryCrossEntropyLossObject
 from models.transe_model import TranseModel
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 
@@ -71,6 +72,22 @@ class TestLossObjects(tf.test.TestCase):
         transe_model = TranseModel(embeddings_config, model_config)
         loss_object = SoftplusLossObject(regularization_strength=0.1)
         self.assertAllClose(0.28, loss_object.get_regularization_loss(transe_model))
+
+    def test_binary_cross_entropy_loss_object_positive_losses(self):
+        loss_object = BinaryCrossEntropyLossObject()
+        self.assertAllClose(
+            [0.006, 0.693, 5.007],
+            loss_object.get_losses_of_positive_samples(samples=np.array([[5.0], [0.0], [-5.0]])),
+            atol=1e-2,
+        )
+
+    def test_binary_cross_entropy_loss_object_pairs_losses(self):
+        loss_object = BinaryCrossEntropyLossObject()
+        pairs_losses = loss_object.get_losses_of_pairs(
+            positive_samples=np.array([[5.0], [0.0], [-5.0]]),
+            negative_samples=np.array([[5.0], [0.0], [-5.0]]),
+        )
+        self.assertAllClose([2.507, 0.693, 2.507], pairs_losses, atol=1e-2)
 
     def test_cross_entropy_loss_object_predicted_loss(self):
         true_labels = np.array([[0, 1, 0], [0, 0, 1]], dtype=np.float32)
