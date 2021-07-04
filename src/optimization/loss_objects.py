@@ -64,10 +64,10 @@ class SoftplusLossObject(SamplingLossObject):
 @gin.configurable
 class BinaryCrossEntropyLossObject(SamplingLossObject):
 
-    def __init__(self):
+    def __init__(self, label_smoothing):
         super(BinaryCrossEntropyLossObject, self).__init__()
         self.loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=True, reduction=tf.losses.Reduction.NONE
+            from_logits=True, reduction=tf.losses.Reduction.NONE, label_smoothing=label_smoothing
         )
 
     def _get_losses_of_samples(self, labels, samples):

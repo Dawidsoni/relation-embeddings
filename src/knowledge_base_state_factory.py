@@ -13,9 +13,10 @@ from models.convkb_model import ConvKBModel
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
+from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset
-from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject
+from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject
 from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator
 from optimization.model_trainers import ModelTrainer, SamplingModelTrainer
 
@@ -36,6 +37,7 @@ class KnowledgeBaseState(object):
 class LossType(Enum):
     NORM = 1
     SOFTPLUS = 2
+    BINARY_CROSS_ENTROPY = 3
 
 
 @gin.constants_from_enum
@@ -44,12 +46,14 @@ class ModelType(Enum):
     STRANSE = 2
     CONVKB = 3
     TRANSFORMER_TRANSE = 4
+    TRANSFORMER_BINARY = 5
 
 
 def _create_loss_object(loss_type: LossType):
     type_mappings = {
         LossType.NORM: lambda: NormLossObject(),
         LossType.SOFTPLUS: lambda: SoftplusLossObject(),
+        LossType.BINARY_CROSS_ENTROPY: lambda: BinaryCrossEntropyLossObject(),
     }
     if loss_type not in type_mappings:
         raise ValueError(f"Invalid loss type: {loss_type}")
@@ -61,7 +65,8 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSE: lambda: TranseModel(embeddings_config),
         ModelType.STRANSE: lambda: STranseModel(embeddings_config),
         ModelType.CONVKB: lambda: ConvKBModel(embeddings_config),
-        ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config)
+        ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config),
+        ModelType.TRANSFORMER_BINARY: lambda: TransformerBinaryModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -100,6 +105,7 @@ def _create_dataset(
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.CONVKB: lambda: sampling_edge_dataset_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_neighbours_dataset_initializer(),
+        ModelType.TRANSFORMER_BINARY: lambda: sampling_neighbours_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -125,6 +131,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.STRANSE: lambda: sampling_trainer_initializer(),
         ModelType.CONVKB: lambda: sampling_trainer_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_trainer_initializer(),
+        ModelType.TRANSFORMER_BINARY: lambda: sampling_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -150,6 +157,7 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
         ModelType.STRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.CONVKB: lambda: sampling_evaluator_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_evaluator_initializer(),
+        ModelType.TRANSFORMER_BINARY: lambda: sampling_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
