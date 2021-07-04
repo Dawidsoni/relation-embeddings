@@ -6,7 +6,7 @@
         },
         {
             "parameter_name": "SamplingNeighboursDataset.neighbours_per_sample",
-            "parameter_values": [3, 5, 10]
+            "parameter_values": [3, 5, 7]
         },
         {
             "parameter_name": "NormLossObject.margin",
