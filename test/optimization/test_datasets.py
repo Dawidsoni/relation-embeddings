@@ -25,12 +25,10 @@ class TestDatasets(tf.test.TestCase):
             dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
         )
         self.assertDictEqual(
-            dataset.incremental_entity_output_edges,
-            {0: [(1, 0), (2, 1), (2, 0)], 1: [(2, 1)], 2: [(0, 0)]}
+            dataset.known_entity_output_edges, {0: [(1, 0)], 1: [(2, 1)]}
         )
         self.assertDictEqual(
-            dataset.incremental_entity_input_edges,
-            {0: [(2, 0)], 1: [(0, 0)], 2: [(1, 1), (0, 1), (0, 0)]}
+            dataset.known_entity_input_edges,  {1: [(0, 0)], 2: [(1, 1)]}
         )
 
     def test_sampling_dataset(self):
@@ -85,7 +83,7 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["object_ids"])
         self.assertAllEqual(tf.broadcast_to(self.edge_object_types, shape=(4, 3)),  pos_samples2["object_types"])
 
-    def test_sampling_neighbours_dataset(self):
+    def test_sampling_neighbours_dataset_two_neighbours(self):
         np.random.seed(2)
         dataset = SamplingNeighboursDataset(
             dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
@@ -95,14 +93,14 @@ class TestDatasets(tf.test.TestCase):
         positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
         self.assertAllEqual(
             np.array([[2, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
-                      [0, 1, 2, 2, 0, 1, 0, 1, 1, 0, 0],
-                      [0, 0, 2, 2, 1, 1, 0, 1, 1, 0, 1]]),
+                      [0, 1, 2, 1, 0, 0, 1, 1, 1, 0, 1],
+                      [0, 0, 2, 1, 0, 0, 1, 1, 1, 0, 1]]),
             positive_samples["object_ids"]
         )
         self.assertAllEqual(
             np.array([[0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2],
-                      [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1],
-                      [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1]]),
+                      [0, 1, 0, 0, 1, 2, 2, 0, 1, 2, 2],
+                      [0, 1, 0, 0, 1, 2, 2, 0, 1, 2, 2]]),
             positive_samples["object_types"]
         )
         self.assertAllEqual(
@@ -112,21 +110,54 @@ class TestDatasets(tf.test.TestCase):
             positive_samples["positions"]
         )
         self.assertAllEqual(
-            np.array([[2, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
-                      [1, 1, 2, 0, 1, 0, 1, 0, 0, 0, 1],
-                      [2, 0, 2, 0, 0, 0, 1, 0, 1, 0, 0]]),
+            np.array([[2, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
+                      [1, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1],
+                      [2, 0, 2, 0, 1, 0, 1, 1, 1, 0, 1]]),
             negative_samples["object_ids"]
         )
         self.assertAllEqual(
-            np.array([[0, 1, 0, 0, 1, 2, 2, 0, 1, 2, 2],
-                      [0, 1, 0, 2, 2, 2, 2, 0, 1, 0, 1],
-                      [0, 1, 0, 0, 1, 2, 2, 0, 1, 0, 1]]),
+            np.array([[0, 1, 0, 2, 2, 2, 2, 0, 1, 2, 2],
+                      [0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2],
+                      [0, 1, 0, 2, 2, 2, 2, 0, 1, 2, 2]]),
             negative_samples["object_types"]
         )
         self.assertAllEqual(
             np.array([[0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
                       [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6],
                       [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6]]),
+            negative_samples["positions"]
+        )
+
+    def test_sampling_neighbours_dataset_one_neighbour(self):
+        np.random.seed(2)
+        dataset = SamplingNeighboursDataset(
+            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
+            negatives_per_positive=1, batch_size=3, neighbours_per_sample=1
+        )
+        samples_batch = next(iter(dataset.samples))
+        positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
+        self.assertAllEqual(
+            np.array([[2, 0, 0, 0, 1, 0, 1], [0, 1, 2, 1, 0, 1, 1], [0, 0, 2, 1, 0, 1, 1]]),
+            positive_samples["object_ids"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 0, 2, 2, 2, 2], [0, 1, 0, 0, 1, 0, 1], [0, 1, 0, 0, 1, 0, 1]]),
+            positive_samples["object_types"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6]]),
+            positive_samples["positions"]
+        )
+        self.assertAllEqual(
+            np.array([[2, 0, 1, 0, 1, 0, 0], [1, 1, 2, 0, 1, 0, 1], [2, 0, 2, 0, 1, 1, 1]]),
+            negative_samples["object_ids"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 0, 2, 2, 0, 1], [0, 1, 0, 2, 2, 2, 2], [0, 1, 0, 2, 2, 0, 1]]),
+            negative_samples["object_types"]
+        )
+        self.assertAllEqual(
+            np.array([[0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6]]),
             negative_samples["positions"]
         )
 

@@ -56,14 +56,14 @@ class Dataset(object):
         self.ids_of_entities = list(self.entity_ids.values())
         self.relation_ids = dict(zip(relations_df[0], relations_df[1]))
         self.ids_of_relations = list(self.relation_ids.values())
-        self.graph_edges = self._get_graph_edges(incremental_graph=False)
+        self.graph_edges = self._extract_edges_from_file(dataset_type=self.dataset_type)
         self.set_of_graph_edges = set(self.graph_edges)
         self.entity_output_edges = self._create_entity_output_edges(self.graph_edges)
         self.entity_input_edges = self._create_entity_input_edges(self.graph_edges)
-        self.incremental_graph_edges = self._get_graph_edges(incremental_graph=True)
-        self.incremental_entity_output_edges = self._create_entity_output_edges(self.incremental_graph_edges)
-        self.incremental_entity_input_edges = self._create_entity_input_edges(self.incremental_graph_edges)
-        self.set_of_incremental_graph_edges = set(self.incremental_graph_edges)
+        self.known_graph_edges = self._extract_edges_from_file(dataset_type=DatasetType.TRAINING)
+        self.known_entity_output_edges = self._create_entity_output_edges(self.known_graph_edges)
+        self.known_entity_input_edges = self._create_entity_input_edges(self.known_graph_edges)
+        self.set_of_known_graph_edges = set(self.known_graph_edges)
 
     def _create_entity_output_edges(self, edges):
         entity_output_edges = collections.defaultdict(list)
@@ -91,16 +91,6 @@ class Dataset(object):
             [self.relation_ids[x] for x in graph_df[1]],
             [self.entity_ids[x] for x in graph_df[2]]
         ))
-
-    def _get_graph_edges(self, incremental_graph):
-        graph_edges = []
-        if self.dataset_type == DatasetType.TRAINING or incremental_graph:
-            graph_edges += self._extract_edges_from_file(DatasetType.TRAINING)
-        if self.dataset_type == DatasetType.VALIDATION:
-            graph_edges += self._extract_edges_from_file(DatasetType.VALIDATION)
-        if self.dataset_type == DatasetType.TEST:
-            graph_edges += self._extract_edges_from_file(DatasetType.TEST)
-        return graph_edges
 
     def _get_processed_dataset(self, dataset):
         dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
@@ -248,10 +238,10 @@ class SamplingNeighboursDataset(SamplingEdgeDataset):
         object_ids, object_types = [], []
         for head_id, relation_id, tail_id in edges.numpy():
             sampled_output_edges, missing_output_edges_count = self._sample_edges(
-                self.incremental_entity_output_edges[head_id], banned_edges=[(tail_id, relation_id)]
+                self.known_entity_output_edges[head_id], banned_edges=[(tail_id, relation_id)]
             )
             sampled_input_edges, missing_input_edges_count = self._sample_edges(
-                self.incremental_entity_input_edges[tail_id], banned_edges=[(head_id, relation_id)]
+                self.known_entity_input_edges[tail_id], banned_edges=[(head_id, relation_id)]
             )
             object_ids.append([head_id, relation_id, tail_id] + sampled_output_edges + sampled_input_edges)
             outputs_types = list(np.concatenate((
