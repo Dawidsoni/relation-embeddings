@@ -2,7 +2,7 @@
     "parameter_configs": [
         {
             "parameter_name": "SamplingNeighboursDataset.batch_size",
-            "parameter_values": [512, 1024, 2048, 4096]
+            "parameter_values": [512, 1024, 2048]
         },
         {
             "parameter_name": "SamplingNeighboursDataset.neighbours_per_sample",
