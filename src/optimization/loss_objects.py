@@ -105,7 +105,7 @@ class CrossEntropyLossObject(SupervisedLossObject):
     def __init__(self, label_smoothing):
         super(CrossEntropyLossObject, self).__init__()
         self.loss_function = tf.keras.losses.CategoricalCrossentropy(
-            from_logits=True, reduction=tf.losses.Reduction.NONE, label_smoothing=label_smoothing
+            from_logits=False, reduction=tf.losses.Reduction.NONE, label_smoothing=label_smoothing
         )
 
     def get_losses_of_samples(self, true_labels, predictions):
