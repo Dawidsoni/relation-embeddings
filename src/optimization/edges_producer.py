@@ -21,7 +21,7 @@ class EdgesProducer(object):
         filtered_edges_object_ids[swap_indexes] = filtered_edges_object_ids[swap_indexes[::-1]]
         produced_edges = {"object_ids": filtered_edges_object_ids}
         for key, values in sample.items():
-            if key == "object_ids":
+            if key in produced_edges.keys():
                 continue
             produced_edges[key] = np.broadcast_to(values, (len(filtered_edges_object_ids), ) + np.shape(values))
         return produced_edges
