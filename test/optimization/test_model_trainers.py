@@ -91,7 +91,7 @@ class TestModelTrainers(tf.test.TestCase):
 
     def test_softmax_model_trainer(self):
         dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=100
         )
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True,
