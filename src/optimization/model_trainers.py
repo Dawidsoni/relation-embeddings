@@ -60,10 +60,11 @@ class SoftmaxModelTrainer(ModelTrainer):
         self.optimizer = tf.keras.optimizers.Adam(learning_rate_schedule)
 
     def train_step(self, training_samples: tf.Tensor, training_step: int):
-        inputs, true_outputs, unused_ids_of_outputs, unused_mask_indexes = training_samples
         with tf.GradientTape() as gradient_tape:
-            predicted_outputs = self.model(inputs, training=True)
-            loss_value = self.loss_object.get_mean_loss_of_samples(true_outputs, predicted_outputs)
+            predictions = self.model(training_samples, training=True)
+            loss_value = self.loss_object.get_mean_loss_of_samples(
+                true_labels=training_samples["one_hot_output"], predictions=predictions
+            )
         trainable_variables = self.model.get_trainable_variables_at_training_step(training_step)
         gradients = gradient_tape.gradient(loss_value, trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, trainable_variables))

@@ -6,9 +6,10 @@ import gin.tf
 
 from layers.embeddings_layers import ObjectType
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
-from optimization.datasets import SamplingEdgeDataset, DatasetType
-from optimization.model_trainers import SamplingModelTrainer
-from optimization.loss_objects import NormLossObject
+from models.conve_model import ConvEModel, ConvEModelConfig
+from optimization.datasets import SamplingEdgeDataset, DatasetType, MaskedEntityOfEdgeDataset
+from optimization.model_trainers import SamplingModelTrainer, SoftmaxModelTrainer
+from optimization.loss_objects import NormLossObject, CrossEntropyLossObject
 from models.transe_model import TranseModel
 
 
@@ -20,15 +21,16 @@ class TestModelTrainers(tf.test.TestCase):
         gin.parse_config("""
             LossObject.regularization_strength = 0.1
         """)
+        self.init_entity_embeddings = tf.ones(shape=(3, 4))
+        self.init_relation_embeddings = 2 * tf.ones(shape=(2, 4))
 
     def test_sampling_model_trainer(self):
         tf.random.set_seed(1)
-        pretrained_entity_embeddings = tf.ones(shape=(3, 4))
-        pretrained_relation_embeddings = 2 * tf.ones(shape=(2, 4))
+
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4,
-            pretrained_entity_embeddings=pretrained_entity_embeddings,
-            pretrained_relation_embeddings=pretrained_relation_embeddings
+            pretrained_entity_embeddings=self.init_entity_embeddings,
+            pretrained_relation_embeddings=self.init_relation_embeddings,
         )
         model_config = ConvModelConfig(include_reduce_dim_layer=False)
         loss_object = NormLossObject(order=2, margin=1.0)
@@ -47,8 +49,8 @@ class TestModelTrainers(tf.test.TestCase):
         expected_kernel = np.array([[[[1.0]], [[1.0]], [[-1.0]]]])
         self.assertAllEqual(expected_kernel, transe_model.conv_layers[0].kernel.numpy())
         embeddings_layer = transe_model.embeddings_layer
-        self.assertGreater(np.sum(pretrained_entity_embeddings != embeddings_layer.entity_embeddings), 0)
-        self.assertGreater(np.sum(pretrained_relation_embeddings != embeddings_layer.relation_embeddings), 0)
+        self.assertGreater(np.sum(self.init_entity_embeddings != embeddings_layer.entity_embeddings), 0)
+        self.assertGreater(np.sum(self.init_relation_embeddings != embeddings_layer.relation_embeddings), 0)
 
     @mock.patch.object(tf, 'GradientTape')
     @mock.patch.object(tf.keras.optimizers, 'Adam')
@@ -86,6 +88,29 @@ class TestModelTrainers(tf.test.TestCase):
         self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]],
                             model_mock.call_args_list[2][0][0]["object_ids"])
         self.assertAllEqual(edge_object_types, model_mock.call_args_list[2][0][0]["object_types"])
+
+    def test_softmax_model_trainer(self):
+        dataset = MaskedEntityOfEdgeDataset(
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
+        )
+        embeddings_config = EmbeddingsConfig(
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True,
+            pretrained_entity_embeddings=self.init_entity_embeddings,
+            pretrained_relation_embeddings=self.init_relation_embeddings,
+        )
+        model_config = ConvEModelConfig(
+            embeddings_width=2, input_dropout_rate=0.5, conv_layer_filters=32, conv_layer_kernel_size=2,
+            conv_dropout_rate=0.5, hidden_dropout_rate=0.5,
+        )
+        model = ConvEModel(embeddings_config, model_config)
+        loss_object = CrossEntropyLossObject(label_smoothing=0.1)
+        learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=1e-3, decay_steps=1, decay_rate=0.5
+        )
+        trainer = SoftmaxModelTrainer(model, loss_object, learning_rate_schedule)
+        trainer.train_step(training_samples=next(iter(dataset.samples)), training_step=1)
+        self.assertGreater(np.sum(self.init_entity_embeddings != model.embeddings_layer.entity_embeddings), 0)
+        self.assertGreater(np.sum(self.init_relation_embeddings != model.embeddings_layer.relation_embeddings), 0)
 
 
 if __name__ == '__main__':
