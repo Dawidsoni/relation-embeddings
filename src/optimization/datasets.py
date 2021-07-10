@@ -124,7 +124,9 @@ class SamplingEdgeDataset(Dataset):
 
     def _get_positive_samples_dataset(self):
         raw_dataset = tf.data.Dataset.from_tensor_slices(self.graph_edges)
-        raw_dataset = raw_dataset.map(lambda x: {"object_ids": x, "object_types": list(self.EDGE_OBJECT_TYPES)})
+        raw_dataset = raw_dataset.map(
+            lambda x: {"object_ids": x, "edge_ids": x, "object_types": list(self.EDGE_OBJECT_TYPES)}
+        )
         return self._get_processed_dataset(raw_dataset)
 
     def _generate_negative_samples(self, negatives_per_positive):
@@ -147,6 +149,7 @@ class SamplingEdgeDataset(Dataset):
                 for produced_edge in produced_edges:
                     yield {
                         "object_ids": produced_edge,
+                        "edge_ids": produced_edge,
                         "object_types": list(self.EDGE_OBJECT_TYPES),
                         "head_swapped": is_head_to_be_swapped,
                     }
@@ -169,6 +172,7 @@ class SamplingEdgeDataset(Dataset):
         raw_dataset = tf.data.Dataset.from_generator(
             lambda: self._generate_negative_samples(negatives_per_positive),
             output_signature={"object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
+                              "edge_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
                               "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
                               "head_swapped": tf.TensorSpec(shape=(), dtype=tf.bool)},
         )
@@ -303,6 +307,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def _get_sample_specification(self):
         return {
+            "edge_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
             "object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
             "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
             "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
@@ -313,12 +318,14 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def _generate_samples(self, mask_index):
         for head_id, relation_id, tail_id in self.graph_edges:
+            edge_ids = [head_id, relation_id, tail_id]
+            output_index = edge_ids[mask_index]
             object_ids = [head_id, relation_id, tail_id]
-            output_index = object_ids[mask_index]
             object_ids[mask_index] = 0
             object_types = list(self.EDGE_OBJECT_TYPES)
             object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
+                "edge_ids": edge_ids,
                 "object_ids": object_ids,
                 "object_types": object_types,
                 "mask_index": mask_index,

@@ -44,12 +44,18 @@ class TestDatasets(tf.test.TestCase):
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
         pos_samples1, array_of_neg_samples1 = batch1
         pos_samples2, array_of_neg_samples2 = batch2
-        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["object_ids"])
-        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples2["object_ids"])
-        self.assertAllEqual([[0, 0, 0], [0, 1, 2], [2, 0, 1], [1, 1, 0]],  array_of_neg_samples1[0]["object_ids"])
-        self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]],  array_of_neg_samples1[1]["object_ids"])
-        self.assertAllEqual([[2, 0, 1], [1, 1, 0], [0, 0, 2], [2, 1, 2]],  array_of_neg_samples2[0]["object_ids"])
-        self.assertAllEqual([[1, 0, 1], [1, 1, 1], [0, 0, 0], [0, 1, 2]],  array_of_neg_samples2[1]["object_ids"])
+        self.assertAllEqual(pos_samples1["edge_ids"], pos_samples1["object_ids"])
+        self.assertAllEqual(pos_samples2["edge_ids"], pos_samples2["object_ids"])
+        self.assertAllEqual(array_of_neg_samples1[0]["edge_ids"], array_of_neg_samples1[0]["object_ids"])
+        self.assertAllEqual(array_of_neg_samples1[1]["edge_ids"], array_of_neg_samples1[1]["object_ids"])
+        self.assertAllEqual(array_of_neg_samples2[0]["edge_ids"], array_of_neg_samples2[0]["object_ids"])
+        self.assertAllEqual(array_of_neg_samples2[1]["edge_ids"], array_of_neg_samples2[1]["object_ids"])
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["edge_ids"])
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples2["edge_ids"])
+        self.assertAllEqual([[0, 0, 0], [0, 1, 2], [2, 0, 1], [1, 1, 0]],  array_of_neg_samples1[0]["edge_ids"])
+        self.assertAllEqual([[0, 0, 2], [2, 1, 2], [1, 0, 1], [1, 1, 1]],  array_of_neg_samples1[1]["edge_ids"])
+        self.assertAllEqual([[2, 0, 1], [1, 1, 0], [0, 0, 2], [2, 1, 2]],  array_of_neg_samples2[0]["edge_ids"])
+        self.assertAllEqual([[1, 0, 1], [1, 1, 1], [0, 0, 0], [0, 1, 2]],  array_of_neg_samples2[1]["edge_ids"])
         expected_object_types = tf.broadcast_to(self.edge_object_types, shape=(4, 3))
         self.assertAllEqual(expected_object_types,  pos_samples1["object_types"])
         self.assertAllEqual(expected_object_types,  pos_samples2["object_types"])
@@ -78,9 +84,11 @@ class TestDatasets(tf.test.TestCase):
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
         pos_samples1, array_of_neg_samples1 = batch1
         pos_samples2, array_of_neg_samples2 = batch2
-        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["object_ids"])
+        self.assertAllEqual(pos_samples1["edge_ids"], pos_samples1["object_ids"])
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["edge_ids"])
         self.assertAllEqual(tf.broadcast_to(self.edge_object_types, shape=(4, 3)), pos_samples1["object_types"])
-        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples1["object_ids"])
+        self.assertAllEqual(pos_samples2["edge_ids"], pos_samples2["object_ids"])
+        self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]], pos_samples2["edge_ids"])
         self.assertAllEqual(tf.broadcast_to(self.edge_object_types, shape=(4, 3)),  pos_samples2["object_types"])
 
     def test_sampling_neighbours_dataset_two_neighbours(self):
@@ -91,6 +99,7 @@ class TestDatasets(tf.test.TestCase):
         )
         samples_batch = next(iter(dataset.samples))
         positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
+        self.assertAllEqual(np.array([[2, 0, 0], [0, 1, 2], [0, 0, 2]]), positive_samples["edge_ids"])
         self.assertAllEqual(
             np.array([[2, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
                       [0, 1, 2, 1, 0, 0, 1, 1, 1, 0, 1],
@@ -109,6 +118,7 @@ class TestDatasets(tf.test.TestCase):
                       [0, 1, 2, 3, 4, 3, 4, 5, 6, 5, 6]]),
             positive_samples["positions"]
         )
+        self.assertAllEqual(np.array([[2, 0, 1], [1, 1, 2], [2, 0, 2]]), negative_samples["edge_ids"])
         self.assertAllEqual(
             np.array([[2, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1],
                       [1, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1],
@@ -136,6 +146,7 @@ class TestDatasets(tf.test.TestCase):
         )
         samples_batch = next(iter(dataset.samples))
         positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
+        self.assertAllEqual(np.array([[2, 0, 0], [0, 1, 2], [0, 0, 2]]), positive_samples["edge_ids"])
         self.assertAllEqual(
             np.array([[2, 0, 0, 0, 1, 0, 1], [0, 1, 2, 1, 0, 1, 1], [0, 0, 2, 1, 0, 1, 1]]),
             positive_samples["object_ids"]
@@ -148,6 +159,7 @@ class TestDatasets(tf.test.TestCase):
             np.array([[0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6], [0, 1, 2, 3, 4, 5, 6]]),
             positive_samples["positions"]
         )
+        self.assertAllEqual(np.array([[2, 0, 1], [1, 1, 2], [2, 0, 2]]), negative_samples["edge_ids"])
         self.assertAllEqual(
             np.array([[2, 0, 1, 0, 1, 0, 0], [1, 1, 2, 0, 1, 0, 1], [2, 0, 2, 0, 1, 1, 1]]),
             negative_samples["object_ids"]
@@ -167,12 +179,14 @@ class TestDatasets(tf.test.TestCase):
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
+        self.assertAllEqual(np.array([[0, 0, 1], [0, 0, 1]], dtype=np.int32), batch1["edge_ids"])
         self.assertAllEqual(np.array([[0, 0, 1], [0, 0, 0]], dtype=np.int32), batch1["object_ids"])
         self.assertAllEqual(np.array([[2, 1, 0], [0, 1, 2]], dtype=np.int32), batch1["object_types"])
         self.assertAllEqual(np.array([0, 2], dtype=np.int32), batch1["mask_index"])
         self.assertAllEqual(np.array([2, 0], dtype=np.int32), batch1["true_entity_index"])
         self.assertAllEqual(np.array([[1., 0., 0.], [0., 1., 0.]], dtype=np.float32), batch1["one_hot_output"])
         self.assertAllEqual(np.array([0, 1], dtype=np.int32), batch1["output_index"])
+        self.assertAllEqual(np.array([[1, 1, 2], [1, 1, 2]], dtype=np.int32), batch2["edge_ids"])
         self.assertAllEqual(np.array([[0, 1, 2], [1, 1, 0]], dtype=np.int32), batch2["object_ids"])
         self.assertAllEqual(np.array([[2, 1, 0], [0, 1, 2]], dtype=np.int32), batch2["object_types"])
         self.assertAllEqual(np.array([0, 2], dtype=np.int32), batch2["mask_index"])
