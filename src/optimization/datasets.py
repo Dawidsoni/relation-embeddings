@@ -306,6 +306,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
             "object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
             "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
             "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
+            "true_entity_index": tf.TensorSpec(shape=(), dtype=tf.int32),
             "one_hot_output": tf.TensorSpec(shape=(self.entities_count, ), dtype=tf.float32),
             "output_index": tf.TensorSpec(shape=(), dtype=tf.int32),
         }
@@ -321,6 +322,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
                 "object_ids": object_ids,
                 "object_types": object_types,
                 "mask_index": mask_index,
+                "true_entity_index": 0 if mask_index == 2 else 2,
                 "one_hot_output": _get_one_hot_encoded_vector(length=self.entities_count, one_hot_ids=[output_index]),
                 "output_index": output_index,
             }
