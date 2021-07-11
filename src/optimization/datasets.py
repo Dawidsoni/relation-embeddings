@@ -303,6 +303,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def _get_sample_specification(self):
         return {
+            "edge_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
             "object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
             "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
             "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
@@ -313,12 +314,14 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def _generate_samples(self, mask_index):
         for head_id, relation_id, tail_id in self.graph_edges:
+            edge_ids = [head_id, relation_id, tail_id]
+            output_index = edge_ids[mask_index]
             object_ids = [head_id, relation_id, tail_id]
-            output_index = object_ids[mask_index]
             object_ids[mask_index] = 0
             object_types = list(self.EDGE_OBJECT_TYPES)
             object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
+                "edge_ids": edge_ids,
                 "object_ids": object_ids,
                 "object_types": object_types,
                 "mask_index": mask_index,
