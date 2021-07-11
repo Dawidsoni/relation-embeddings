@@ -50,7 +50,7 @@ create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_TRANSE
 PiecewiseLinearDecayScheduler.initial_learning_rate = 5e-4
 PiecewiseLinearDecayScheduler.decay_steps = 25_000
 PiecewiseLinearDecayScheduler.decay_rate = 1.0
-PiecewiseLinearDecayScheduler.warmup_steps = 0
+PiecewiseLinearDecayScheduler.warmup_steps = 5000
 
 
 # Training model

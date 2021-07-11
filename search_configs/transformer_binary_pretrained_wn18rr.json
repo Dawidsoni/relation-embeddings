@@ -87,6 +87,10 @@
         {
             "parameter_name": "PiecewiseLinearDecayScheduler.decay_steps",
             "parameter_values": [50000]
+        },
+        {
+            "parameter_name": "PiecewiseLinearDecayScheduler.warmup_steps",
+            "parameter_values": [10000]
         }
     ],
     "banned_parameter_configs": [

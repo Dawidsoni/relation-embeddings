@@ -89,6 +89,10 @@
             "parameter_values": [50000]
         },
         {
+            "parameter_name": "PiecewiseLinearDecayScheduler.warmup_steps",
+            "parameter_values": [10000]
+        },
+        {
             "parameter_name": "SamplingEdgeDataset.negatives_per_positive",
             "parameter_values": [1]
         },
