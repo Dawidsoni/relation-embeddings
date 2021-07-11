@@ -6,7 +6,7 @@ from models.conv_base_model import KnowledgeCompletionModel
 
 
 @gin.configurable(blacklist=['embeddings_config'])
-class TransformerConveModel(KnowledgeCompletionModel):
+class TransformerConvEModel(KnowledgeCompletionModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig):
         super().__init__(embeddings_config)
