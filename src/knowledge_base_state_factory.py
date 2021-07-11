@@ -18,6 +18,7 @@ from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
     MaskedEntityOfEdgeDataset
+from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
     CrossEntropyLossObject
 from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator, SoftmaxModelEvaluator
@@ -196,15 +197,6 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
     return type_mappings[model_type]()
 
 
-@gin.configurable
-def _create_learning_rate_schedule(
-    initial_learning_rate=gin.REQUIRED, decay_steps=gin.REQUIRED, decay_rate=gin.REQUIRED, staircase=False
-):
-    return tf.keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate, decay_steps, decay_rate, staircase=staircase
-    )
-
-
 @gin.configurable(blacklist=["model_type"])
 def _create_embeddings_config(
     model_type: ModelType,
@@ -254,7 +246,7 @@ def create_knowledge_base_state(
     loss_type: LossType = gin.REQUIRED,
 ):
     embeddings_config = _create_embeddings_config(model_type)
-    learning_rate_scheduler = _create_learning_rate_schedule()
+    learning_rate_scheduler = PiecewiseLinearDecayScheduler()
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)
     best_model = _create_model(embeddings_config, model_type)
