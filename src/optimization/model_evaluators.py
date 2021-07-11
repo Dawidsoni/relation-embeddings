@@ -1,16 +1,46 @@
 from abc import abstractmethod
 from typing import Optional, List, Tuple, Union
 import tensorflow as tf
-import itertools
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from optimization.datasets import SamplingEdgeDataset, Dataset, SoftmaxDataset
 from optimization.edges_producer import EdgesProducer
 from optimization.evaluation_metrics import EvaluationMetrics
+from optimization.existing_edges_filter import ExistingEdgesFilter
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
-from optimization.losses_filter import LossesFilter
 
 LearningRateSchedule = tf.keras.optimizers.schedules.LearningRateSchedule
+
+
+def _report_computed_evaluation_metrics(evaluation_metrics, step, metrics_prefix):
+    mean_rank, mean_reciprocal_rank, hits10 = evaluation_metrics.result()
+    tf.summary.scalar(name=f"{metrics_prefix}/mean_rank", data=mean_rank, step=step)
+    tf.summary.scalar(name=f"{metrics_prefix}/mean_reciprocal_rank", data=mean_reciprocal_rank, step=step)
+    tf.summary.scalar(name=f"{metrics_prefix}/hits10", data=hits10, step=step)
+
+
+def _unbatch_samples(batched_samples):
+    samples_any_key = list(batched_samples.keys())[0]
+    batch_size = tf.shape(batched_samples[samples_any_key])[0]
+    return [
+        {key: values[index] for key, values in batched_samples.items()}
+        for index in range(batch_size)
+    ]
+
+
+def _extract_lower_is_better_metrics(metrics):
+    mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
+    return mean_rank, 1.0 - mean_reciprocal_rank, 1.0 - hits10
+
+
+def _log_dict_of_metrics(logger, dict_of_metrics):
+    for name_prefix, metrics in dict_of_metrics.items():
+        mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
+        logger.info(f"Evaluating a model on test dataset: {name_prefix}/mean_rank: {mean_rank}")
+        logger.info(
+            f"Evaluating a model on test dataset: {name_prefix}/mean_reciprocal_rank: {mean_reciprocal_rank}"
+        )
+        logger.info(f"Evaluating a model on test dataset: {name_prefix}/hits10: {hits10}")
 
 
 class ModelEvaluator(object):
@@ -37,12 +67,15 @@ class ModelEvaluator(object):
             self._summary_writer = tf.summary.create_file_writer(self.output_directory)
         return self._summary_writer
 
-    @staticmethod
-    def _report_computed_evaluation_metrics(evaluation_metrics, step, metrics_prefix):
-        mean_rank, mean_reciprocal_rank, hits10 = evaluation_metrics.result()
-        tf.summary.scalar(name=f"{metrics_prefix}/mean_rank", data=mean_rank, step=step)
-        tf.summary.scalar(name=f"{metrics_prefix}/mean_reciprocal_rank", data=mean_reciprocal_rank, step=step)
-        tf.summary.scalar(name=f"{metrics_prefix}/hits10", data=hits10, step=step)
+    @abstractmethod
+    def _compute_metrics_on_samples(self, batched_samples):
+        pass
+
+    def _compute_and_report_metrics(self, batched_samples, step):
+        named_metrics = self._compute_metrics_on_samples(batched_samples)
+        for name_prefix, metrics in named_metrics.items():
+            _report_computed_evaluation_metrics(metrics, step, metrics_prefix=name_prefix)
+        return named_metrics
 
     def _maybe_report_learning_rate(self, step):
         if self.learning_rate_scheduler is None:
@@ -84,10 +117,10 @@ class SamplingModelEvaluator(ModelEvaluator):
         )
         self.edges_producer = EdgesProducer(dataset.ids_of_entities, existing_graph_edges)
 
-    def _compute_metrics_on_samples(self, samples):
+    def _compute_metrics_on_samples(self, batched_samples):
         head_metrics = EvaluationMetrics()
         tail_metrics = EvaluationMetrics()
-        for sample in samples:
+        for sample in _unbatch_samples(batched_samples):
             head_samples = self.edges_producer.produce_head_edges(sample, target_pattern_index=0)
             head_predictions = self.model.predict(head_samples, batch_size=self.EVAL_BATCH_SIZE)
             head_losses = self.loss_object.get_losses_of_positive_samples(head_predictions)
@@ -102,12 +135,6 @@ class SamplingModelEvaluator(ModelEvaluator):
             "metrics_tail": tail_metrics,
             "metrics_averaged": average_evaluation_metrics
         }
-
-    def _compute_and_report_metrics(self, samples, step):
-        named_metrics = self._compute_metrics_on_samples(samples)
-        for name_prefix, metrics in named_metrics.items():
-            self._report_computed_evaluation_metrics(metrics, step, metrics_prefix=name_prefix)
-        return named_metrics
 
     def _compute_and_report_losses(self, positive_samples, step):
         positive_outputs = self.model(positive_samples, training=False)
@@ -130,31 +157,18 @@ class SamplingModelEvaluator(ModelEvaluator):
     def evaluation_step(self, step):
         positive_samples, unused_negative_samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
-            metrics = self._compute_and_report_metrics(
-                samples=[{key: values[index] for key, values in positive_samples.items()}
-                         for index in range(tf.shape(positive_samples["object_ids"])[0])],
-                step=step)
+            metrics = self._compute_and_report_metrics(positive_samples, step)
             self._compute_and_report_losses(positive_samples, step)
             self._compute_and_report_model_outputs(positive_samples, step)
             self._maybe_report_learning_rate(step)
-        mean_rank, mean_reciprocal_rank, hits10 = metrics["metrics_averaged"].result()
-        return mean_rank, 1.0 - mean_reciprocal_rank, 1.0 - hits10
+        return _extract_lower_is_better_metrics(metrics["metrics_averaged"])
 
     def log_metrics(self, logger):
-        positive_samples_infinite_iterator = self.dataset.samples.map(
+        positive_samples_iterator = self.dataset.samples.map(
             lambda positive_samples, negative_samples: positive_samples
-        ).unbatch().as_numpy_iterator()
-        positive_samples_iterator = itertools.islice(
-            positive_samples_infinite_iterator, len(self.dataset.graph_edges)
-        )
-        named_metrics = self._compute_metrics_on_samples(positive_samples_iterator)
-        for name_prefix, metrics in named_metrics.items():
-            mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
-            logger.info(f"Evaluating a model on test dataset: {name_prefix}/mean_rank: {mean_rank}")
-            logger.info(
-                f"Evaluating a model on test dataset: {name_prefix}/mean_reciprocal_rank: {mean_reciprocal_rank}"
-            )
-            logger.info(f"Evaluating a model on test dataset: {name_prefix}/hits10: {hits10}")
+        ).unbatch().batch(len(self.dataset.graph_edges)).as_numpy_iterator()
+        named_metrics = self._compute_metrics_on_samples(batched_samples=next(positive_samples_iterator))
+        _log_dict_of_metrics(logger, named_metrics)
 
 
 class SoftmaxModelEvaluator(ModelEvaluator):
@@ -175,39 +189,51 @@ class SoftmaxModelEvaluator(ModelEvaluator):
             output_directory=output_directory,
             learning_rate_scheduler=learning_rate_scheduler,
         )
-        self.losses_filter = LossesFilter(dataset.ids_of_entities, existing_graph_edges)
+        self.existing_edges_filter = ExistingEdgesFilter(dataset.entities_count, existing_graph_edges)
 
-    def _compute_metrics(self, true_outputs, predicted_outputs, original_edges):
-        losses = self.loss_object.get_losses_of_samples(true_outputs, predicted_outputs)
-        metrics = EvaluationMetrics()
-        for true_entity_id, entity_losses, original_edge in zip(true_outputs, losses, original_edges):
-            entity_losses = self.losses_filter(entity_losses, source_position=true_entity_id, target_pattern_index=0)
-            metrics.update_state(entity_losses.numpy(), positive_sample_index=0)
-        return metrics
+    def _compute_metrics_on_samples(self, batched_samples):
+        head_metrics = EvaluationMetrics()
+        tail_metrics = EvaluationMetrics()
+        losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()
+        for sample, ranking in zip(_unbatch_samples(batched_samples), losses_ranking):
+            filtered_ranking = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
+                sample["edge_ids"], sample["mask_index"], values=ranking, target_index=0,
+            )
+            if sample["mask_index"] == 0:
+                head_metrics.update_state(filtered_ranking, positive_sample_index=0)
+            elif sample["mask_index"] == 2:
+                tail_metrics.update_state(filtered_ranking, positive_sample_index=0)
+            else:
+                raise ValueError(f"Invalid `mask_index`: {sample['mask_index']}")
+        average_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
+        return {
+            "metrics_head": head_metrics,
+            "metrics_tail": tail_metrics,
+            "metrics_averaged": average_evaluation_metrics
+        }
+
+    def _compute_and_report_losses(self, samples, step):
+        predictions = self.model(samples, training=False)
+        loss_value = self.loss_object.get_mean_loss_of_samples(
+            true_labels=samples["one_hot_output"], predictions=predictions
+        )
+        tf.summary.scalar(name="losses/samples_loss", data=loss_value, step=step)
+        regularization_loss = self.loss_object.get_regularization_loss(self.model)
+        tf.summary.scalar(name="losses/regularization_loss", data=regularization_loss, step=step)
 
     def build_model(self):
-        pass # TODO
+        self.model(next(self.iterator_of_samples), training=False)
 
     def evaluation_step(self, step):
-        inputs, true_outputs, ids_of_true_outputs, mask_indexes = next(self.iterator_of_samples)
-        edges = inputs[0]
-        predicted_outputs = self.model(inputs, training=False)
+        samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
-            metrics = self._compute_metrics(edges, ids_of_true_outputs, mask_indexes, true_outputs, predicted_outputs)
-            self._report_computed_evaluation_metrics(metrics, step, metrics_prefix="metrics_averaged")
-            loss_value = self.loss_object.get_mean_loss_of_samples(true_outputs, predicted_outputs)
-            tf.summary.scalar(name="losses/samples_loss", data=loss_value, step=step)
+            metrics = self._compute_and_report_metrics(samples, step)
+            self._compute_and_report_losses(samples, step)
             self._maybe_report_learning_rate(step)
-        # TODO: RETURN VALUE
+        return _extract_lower_is_better_metrics(metrics["metrics_averaged"])
 
     def log_metrics(self, logger):
-        inputs, true_outputs, ids_of_true_outputs, mask_indexes = next(self.iterator_of_samples)
-        edges = inputs[0]
-        predicted_outputs = self.model(inputs, training=False)
-        metrics = self._compute_metrics(true_outputs, predicted_outputs, original_edges)
-        mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
-        logger.info(f"Evaluating a model on test dataset: metrics_averaged/mean_rank: {mean_rank}")
-        logger.info(
-            f"Evaluating a model on test dataset: metrics_averaged/mean_reciprocal_rank: {mean_reciprocal_rank}"
-        )
-        logger.info(f"Evaluating a model on test dataset: metrics_averaged/hits10: {hits10}")
+        test_samples_count = 2 * len(self.dataset.graph_edges)
+        samples_iterator = self.dataset.samples.unbatch().batch(test_samples_count).as_numpy_iterator()
+        named_metrics = self._compute_metrics_on_samples(batched_samples=next(samples_iterator))
+        _log_dict_of_metrics(logger, named_metrics)
