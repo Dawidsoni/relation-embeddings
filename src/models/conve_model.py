@@ -11,11 +11,11 @@ from models.conv_base_model import KnowledgeCompletionModel
 @dataclass
 class ConvEModelConfig(object):
     embeddings_width: int
-    input_dropout_rate: float
-    conv_layer_filters: int
-    conv_layer_kernel_size: int
-    conv_dropout_rate: float
-    hidden_dropout_rate: float
+    input_dropout_rate: float = 0.0
+    conv_layer_filters: int = 32
+    conv_layer_kernel_size: int = 3
+    conv_dropout_rate: float = 0.0
+    hidden_dropout_rate: float = 0.0
 
 
 @gin.configurable(blacklist=['embeddings_config'])
