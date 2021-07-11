@@ -16,6 +16,8 @@ class TestTransformerBinaryModel(tf.test.TestCase):
             StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 4
             StackedTransformerEncodersLayer.dropout_rate = 0.5
             StackedTransformerEncodersLayer.share_encoder_parameters = False
+            StackedTransformerEncodersLayer.share_encoder_parameters = False
+            StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
         """)
         edge_object_type = [
             ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value, ObjectType.ENTITY.value,

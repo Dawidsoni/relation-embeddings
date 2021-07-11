@@ -1,3 +1,4 @@
+import enum
 import functools
 import tensorflow as tf
 import gin.tf
@@ -36,6 +37,12 @@ class PointwiseFeedforwardLayer(tf.keras.layers.Layer):
         return self.dense_layer2(outputs, training=training)
 
 
+@gin.constants_from_enum
+class TransformerEncoderLayerType(enum.Enum):
+    PRE_LAYER_NORM = 1
+    POST_LAYER_NORM = 2
+
+
 class TransformerEncoderLayer(tf.keras.layers.Layer):
 
     def __init__(
@@ -59,13 +66,40 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         self.dropout_layer1 = tf.keras.layers.Dropout(dropout_rate)
         self.dropout_layer2 = tf.keras.layers.Dropout(dropout_rate)
 
-    def call(self, inputs, training=None):
+
+class PreNormalizationTransformerEncoderLayer(TransformerEncoderLayer):
+
+    def call(self, inputs, training=None, **kwargs):
+        attention_outputs = self.layer_norm1(inputs)
+        attention_outputs = self.attention_layer(attention_outputs, training=training)
+        attention_outputs = self.dropout_layer1(attention_outputs, training=training)
+        attention_outputs += inputs
+        pointwise_outputs = self.layer_norm2(attention_outputs)
+        pointwise_outputs = self.pointwise_layer(pointwise_outputs)
+        pointwise_outputs = self.dropout_layer2(pointwise_outputs, training=training)
+        pointwise_outputs += attention_outputs
+        return pointwise_outputs
+
+
+class PostNormalizationTransformerEncoderLayer(TransformerEncoderLayer):
+
+    def call(self, inputs, training=None, **kwargs):
         attention_outputs = self.attention_layer(inputs, training=training)
         attention_outputs = self.dropout_layer1(attention_outputs, training=training)
         attention_outputs = self.layer_norm1(inputs + attention_outputs)
         pointwise_outputs = self.pointwise_layer(attention_outputs)
         pointwise_outputs = self.dropout_layer2(pointwise_outputs, training=training)
         return self.layer_norm2(attention_outputs + pointwise_outputs)
+
+
+def _get_encoder_layer_class_from_type(encoder_layer_type: TransformerEncoderLayerType):
+    type_classes = {
+        TransformerEncoderLayerType.PRE_LAYER_NORM: PreNormalizationTransformerEncoderLayer,
+        TransformerEncoderLayerType.POST_LAYER_NORM: PostNormalizationTransformerEncoderLayer,
+    }
+    if encoder_layer_type not in type_classes.keys():
+        raise ValueError(f"Invalid encoder layer type: {encoder_layer_type}")
+    return type_classes[encoder_layer_type]
 
 
 @gin.configurable
@@ -79,10 +113,11 @@ class StackedTransformerEncodersLayer(tf.keras.layers.Layer):
         pointwise_hidden_layer_dimension: int = gin.REQUIRED,
         dropout_rate: float = gin.REQUIRED,
         share_encoder_parameters: bool = gin.REQUIRED,
+        encoder_layer_type: TransformerEncoderLayerType = gin.REQUIRED,
     ):
         super(StackedTransformerEncodersLayer, self).__init__()
         encoder_layer_initializer = functools.partial(
-            TransformerEncoderLayer,
+            _get_encoder_layer_class_from_type(encoder_layer_type),
             attention_heads_count=attention_heads_count,
             attention_head_dimension=attention_head_dimension,
             pointwise_hidden_layer_dimension=pointwise_hidden_layer_dimension,
@@ -93,6 +128,8 @@ class StackedTransformerEncodersLayer(tf.keras.layers.Layer):
             self.sublayers = [shared_encoder_layer for _ in range(layers_count)]
         else:
             self.sublayers = [encoder_layer_initializer() for _ in range(layers_count)]
+        if encoder_layer_type == TransformerEncoderLayerType.PRE_LAYER_NORM:
+            self.sublayers.append(tf.keras.layers.LayerNormalization(epsilon=1e-6))
 
     def call(self, inputs, training=None):
         outputs = inputs

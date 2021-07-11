@@ -34,6 +34,7 @@ StackedTransformerEncodersLayer.attention_head_dimension = 200
 StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 800
 StackedTransformerEncodersLayer.dropout_rate = 0.5
 StackedTransformerEncodersLayer.share_encoder_parameters = False
+StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
 
 TransformerBinaryModel.use_only_edge_in_reduction_layer = True
 create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_BINARY

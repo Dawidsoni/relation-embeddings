@@ -17,6 +17,7 @@ class TestTransformerTranseModel(tf.test.TestCase):
             StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 4
             StackedTransformerEncodersLayer.dropout_rate = 0.5
             StackedTransformerEncodersLayer.share_encoder_parameters = False
+            StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
         """)
 
     def test_model(self):

@@ -35,6 +35,7 @@ StackedTransformerEncodersLayer.attention_head_dimension = 200
 StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 800
 StackedTransformerEncodersLayer.dropout_rate = 0.5
 StackedTransformerEncodersLayer.share_encoder_parameters = False
+StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
 
 transformer_transe/ConvModelConfig.include_reduce_dim_layer = False
 transformer_transe/ConvModelConfig.normalize_embeddings = True
