@@ -21,7 +21,7 @@ class ConvEModelConfig(object):
 @gin.configurable(blacklist=['embeddings_config'])
 class ConvEModel(KnowledgeCompletionModel):
 
-    def __init__(self, embeddings_config: EmbeddingsConfig, model_config: ConvEModelConfig):
+    def __init__(self, embeddings_config: EmbeddingsConfig, model_config: ConvEModelConfig = gin.REQUIRED):
         super().__init__(embeddings_config)
         self.model_config = model_config
         if self.embeddings_layer.config.embeddings_dimension % self.model_config.embeddings_width != 0:

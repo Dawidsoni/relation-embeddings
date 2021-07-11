@@ -9,16 +9,19 @@ import numpy as np
 import gin.tf
 
 from layers.embeddings_layers import EmbeddingsConfig
+from models.conve_model import ConvEModel
 from models.convkb_model import ConvKBModel
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
 from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
-from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset
-from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject
-from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator
-from optimization.model_trainers import ModelTrainer, SamplingModelTrainer
+from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
+    MaskedEntityOfEdgeDataset
+from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
+    CrossEntropyLossObject
+from optimization.model_evaluators import ModelEvaluator, SamplingModelEvaluator, SoftmaxModelEvaluator
+from optimization.model_trainers import ModelTrainer, SamplingModelTrainer, SoftmaxModelTrainer
 
 
 @dataclass
@@ -38,6 +41,7 @@ class LossType(Enum):
     NORM = 1
     SOFTPLUS = 2
     BINARY_CROSS_ENTROPY = 3
+    CROSS_ENTROPY = 4
 
 
 @gin.constants_from_enum
@@ -47,6 +51,7 @@ class ModelType(Enum):
     CONVKB = 3
     TRANSFORMER_TRANSE = 4
     TRANSFORMER_BINARY = 5
+    CONVE = 6
 
 
 def _create_loss_object(loss_type: LossType):
@@ -54,6 +59,7 @@ def _create_loss_object(loss_type: LossType):
         LossType.NORM: lambda: NormLossObject(),
         LossType.SOFTPLUS: lambda: SoftplusLossObject(),
         LossType.BINARY_CROSS_ENTROPY: lambda: BinaryCrossEntropyLossObject(),
+        LossType.CROSS_ENTROPY: lambda: CrossEntropyLossObject(),
     }
     if loss_type not in type_mappings:
         raise ValueError(f"Invalid loss type: {loss_type}")
@@ -67,6 +73,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.CONVKB: lambda: ConvKBModel(embeddings_config),
         ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config),
         ModelType.TRANSFORMER_BINARY: lambda: TransformerBinaryModel(embeddings_config),
+        ModelType.CONVE: lambda: ConvEModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -100,12 +107,20 @@ def _create_dataset(
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
     )
+    masked_entity_of_edge_dataset_initializer = functools.partial(
+        MaskedEntityOfEdgeDataset,
+        dataset_type=dataset_type,
+        data_directory=gin.REQUIRED,
+        batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset,
+    )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.CONVKB: lambda: sampling_edge_dataset_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_neighbours_dataset_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_neighbours_dataset_initializer(),
+        ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -126,12 +141,19 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         loss_object=loss_object,
         learning_rate_schedule=learning_rate_schedule,
     )
+    softmax_trainer_initializer = functools.partial(
+        SoftmaxModelTrainer,
+        model=model,
+        loss_object=loss_object,
+        learning_rate_schedule=learning_rate_schedule,
+    )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_trainer_initializer(),
         ModelType.STRANSE: lambda: sampling_trainer_initializer(),
         ModelType.CONVKB: lambda: sampling_trainer_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_trainer_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_trainer_initializer(),
+        ModelType.CONVE: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -152,12 +174,22 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
         output_directory=outputs_folder,
         learning_rate_scheduler=learning_rate_scheduler,
     )
+    softmax_evaluator_initializer = functools.partial(
+        SoftmaxModelEvaluator,
+        model=model,
+        loss_object=loss_object,
+        dataset=evaluation_dataset,
+        existing_graph_edges=existing_graph_edges,
+        output_directory=outputs_folder,
+        learning_rate_scheduler=learning_rate_scheduler,
+    )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.STRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.CONVKB: lambda: sampling_evaluator_initializer(),
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_evaluator_initializer(),
+        ModelType.CONVE: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
