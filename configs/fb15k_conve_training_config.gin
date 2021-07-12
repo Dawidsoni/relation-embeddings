@@ -17,6 +17,11 @@ EmbeddingsConfig.embeddings_dimension = 200
 EmbeddingsConfig.trainable_embeddings = True
 EmbeddingsConfig.use_special_token_embeddings = True
 
+_create_embeddings_config.entity_embeddings_path = None
+_create_embeddings_config.relation_embeddings_path = None
+_create_embeddings_config.position_embeddings_path = None
+_create_embeddings_config.special_token_embeddings_path = None
+
 
 # ConvE model
 
@@ -26,6 +31,10 @@ ConvEModelConfig.conv_layer_filters = 32
 ConvEModelConfig.conv_layer_kernel_size = 3
 ConvEModelConfig.conv_dropout_rate = 0.0
 ConvEModelConfig.hidden_dropout_rate = 0.0
+
+ConvEModel.model_config = @ConvEModelConfig()
+
+create_knowledge_base_state.model_type = %ModelType.CONVE
 
 
 # Creating a learning rate schedule
