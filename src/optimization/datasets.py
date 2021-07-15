@@ -1,5 +1,6 @@
 import collections
 import itertools
+import functools
 from abc import abstractmethod, ABCMeta
 import enum
 import os
@@ -11,10 +12,43 @@ import pandas as pd
 from layers.embeddings_layers import ObjectType
 
 
+TRAINING_DATASET_FILENAME = "train.txt"
+VALIDATION_DATASET_FILENAME = "valid.txt"
+TEST_DATASET_FILENAME = "test.txt"
+ENTITIES_IDS_FILENAME = 'entity2id.txt'
+RELATIONS_IDS_FILENAME = 'relation2id.txt'
+
+
 class DatasetType(enum.Enum):
     TRAINING = 0
     VALIDATION = 1
     TEST = 2
+
+
+def _extract_entity_ids(data_directory):
+    entities_df = pd.read_table(os.path.join(data_directory, ENTITIES_IDS_FILENAME), header=None)
+    return dict(zip(entities_df[0], entities_df[1]))
+
+
+def _extract_relation_ids(data_directory):
+    relations_df = pd.read_table(os.path.join(data_directory, RELATIONS_IDS_FILENAME), header=None)
+    return dict(zip(relations_df[0], relations_df[1]))
+
+
+def extract_edges_from_file(entity_ids, relation_ids, data_directory, dataset_type):
+    dataset_types_filenames = {
+        DatasetType.TRAINING: TRAINING_DATASET_FILENAME,
+        DatasetType.VALIDATION: VALIDATION_DATASET_FILENAME,
+        DatasetType.TEST: TEST_DATASET_FILENAME,
+    }
+    if dataset_type not in dataset_types_filenames:
+        raise ValueError(f"Expected an instance of DatasetType, got {dataset_type}")
+    graph_df = pd.read_table(os.path.join(data_directory, dataset_types_filenames[dataset_type]), header=None)
+    return list(zip(
+        [entity_ids[x] for x in graph_df[0]],
+        [relation_ids[x] for x in graph_df[1]],
+        [entity_ids[x] for x in graph_df[2]]
+    ))
 
 
 def _get_one_hot_encoded_vector(length, one_hot_ids):
@@ -35,12 +69,20 @@ def _interleave_datasets(dataset1, dataset2):
     )
 
 
+def get_existing_graph_edges(data_directory):
+    entity_ids = _extract_entity_ids(data_directory)
+    relation_ids = _extract_relation_ids(data_directory)
+    edges_func = functools.partial(
+        extract_edges_from_file, entity_ids=entity_ids, relation_ids=relation_ids, data_directory=data_directory
+    )
+    return (
+        edges_func(dataset_type=DatasetType.TRAINING) +
+        edges_func(dataset_type=DatasetType.VALIDATION) +
+        edges_func(dataset_type=DatasetType.TEST)
+    )
+
+
 class Dataset(object):
-    ENTITIES_IDS_FILENAME = 'entity2id.txt'
-    RELATIONS_IDS_FILENAME = 'relation2id.txt'
-    TRAINING_DATASET_FILENAME = "train.txt"
-    VALIDATION_DATASET_FILENAME = "valid.txt"
-    TEST_DATASET_FILENAME = "test.txt"
     EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
     def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False):
@@ -48,21 +90,23 @@ class Dataset(object):
         self.data_directory = data_directory
         self.batch_size = batch_size
         self.shuffle_dataset = shuffle_dataset
-        entities_df = pd.read_table(os.path.join(data_directory, self.ENTITIES_IDS_FILENAME), header=None)
-        relations_df = pd.read_table(os.path.join(data_directory, self.RELATIONS_IDS_FILENAME), header=None)
-        self.entity_ids = dict(zip(entities_df[0], entities_df[1]))
-        self.ids_of_entities = list(self.entity_ids.values())
+        entity_ids = _extract_entity_ids(data_directory)
+        relation_ids = _extract_relation_ids(data_directory)
+        self.ids_of_entities = list(entity_ids.values())
         self.entities_count = max(self.ids_of_entities) + 1
-        self.relation_ids = dict(zip(relations_df[0], relations_df[1]))
-        self.ids_of_relations = list(self.relation_ids.values())
-        self.graph_edges = self._extract_edges_from_file(dataset_type=self.dataset_type)
+        self.ids_of_relations = list(relation_ids.values())
+        self.relations_count = max(self.ids_of_relations) + 1
+        self.graph_edges = extract_edges_from_file(
+            entity_ids, relation_ids, self.data_directory, self.dataset_type
+        )
         self.set_of_graph_edges = set(self.graph_edges)
         self.entity_output_edges = self._create_entity_output_edges(self.graph_edges)
         self.entity_input_edges = self._create_entity_input_edges(self.graph_edges)
-        self.known_graph_edges = self._extract_edges_from_file(dataset_type=DatasetType.TRAINING)
-        self.known_entity_output_edges = self._create_entity_output_edges(self.known_graph_edges)
-        self.known_entity_input_edges = self._create_entity_input_edges(self.known_graph_edges)
-        self.set_of_known_graph_edges = set(self.known_graph_edges)
+        known_graph_edges = extract_edges_from_file(
+            entity_ids, relation_ids, self.data_directory, dataset_type=DatasetType.TRAINING,
+        )
+        self.known_entity_output_edges = self._create_entity_output_edges(known_graph_edges)
+        self.known_entity_input_edges = self._create_entity_input_edges(known_graph_edges)
 
     def _create_entity_output_edges(self, edges):
         entity_output_edges = collections.defaultdict(list)
@@ -75,21 +119,6 @@ class Dataset(object):
         for edge in edges:
             entity_input_edges[edge[2]].append((edge[0], edge[1]))
         return entity_input_edges
-
-    def _extract_edges_from_file(self, dataset_type):
-        dataset_types_filenames = {
-            DatasetType.TRAINING: Dataset.TRAINING_DATASET_FILENAME,
-            DatasetType.VALIDATION: Dataset.VALIDATION_DATASET_FILENAME,
-            DatasetType.TEST: Dataset.TEST_DATASET_FILENAME,
-        }
-        if dataset_type not in dataset_types_filenames:
-            raise ValueError(f"Expected an instance of DatasetType, got {self.dataset_type}")
-        graph_df = pd.read_table(os.path.join(self.data_directory, dataset_types_filenames[dataset_type]), header=None)
-        return list(zip(
-            [self.entity_ids[x] for x in graph_df[0]],
-            [self.relation_ids[x] for x in graph_df[1]],
-            [self.entity_ids[x] for x in graph_df[2]]
-        ))
 
     def _get_processed_dataset(self, dataset):
         dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset

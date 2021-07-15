@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import tensorflow as tf
 import gin.tf
 import numpy as np
+from optimization import datasets
 
 from optimization.datasets import DatasetType, MaskedEntityOfEdgeDataset, SamplingEdgeDataset, SamplingNeighboursDataset
 from layers.embeddings_layers import ObjectType
@@ -29,6 +30,12 @@ class TestDatasets(tf.test.TestCase):
         )
         self.assertDictEqual(
             dataset.known_entity_input_edges,  {1: [(0, 0)], 2: [(1, 1)]}
+        )
+
+    def test_get_existing_graph_edges(self):
+        self.assertAllEqual(
+            [(0, 0, 1), (1, 1, 2), (2, 0, 0), (0, 1, 2), (0, 0, 2), (2, 1, 0)],
+            datasets.get_existing_graph_edges(self.DATASET_PATH),
         )
 
     def test_sampling_dataset(self):

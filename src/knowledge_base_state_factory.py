@@ -3,8 +3,8 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 import functools
+from optimization import datasets
 
-import tensorflow as tf
 import numpy as np
 import gin.tf
 
@@ -128,13 +128,6 @@ def _create_dataset(
     return type_mappings[model_type]()
 
 
-def _get_existing_graph_edges(model_type: ModelType):
-    training_dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1)
-    validation_dataset = _create_dataset(DatasetType.VALIDATION, model_type, batch_size=1)
-    test_dataset = _create_dataset(DatasetType.TEST, model_type, batch_size=1)
-    return training_dataset.graph_edges + validation_dataset.graph_edges + test_dataset.graph_edges
-
-
 def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule):
     sampling_trainer_initializer = functools.partial(
         SamplingModelTrainer,
@@ -162,10 +155,10 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
 
 
 def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, loss_object, learning_rate_scheduler):
-    existing_graph_edges = _get_existing_graph_edges(model_type)
     evaluation_dataset = _create_dataset(
         dataset_type, batch_size=200, shuffle_dataset=True, model_type=model_type
     )
+    existing_graph_edges = datasets.get_existing_graph_edges(evaluation_dataset.data_directory)
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
         model=model,
