@@ -27,7 +27,7 @@ class ExperimentConfig(object):
 
 class TrainingStopper(object):
 
-    def __init__(self, losses_to_keep=8, expected_improvement=1.0):
+    def __init__(self, losses_to_keep=16, expected_improvement=1.0):
         self.losses_to_keep = losses_to_keep
         self.losses_queue = collections.deque()
         self.expected_improvement = expected_improvement

@@ -121,10 +121,10 @@ class Dataset(object):
         return entity_input_edges
 
     def _get_processed_dataset(self, dataset):
-        dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
+        dataset = dataset.shuffle(buffer_size=1000) if self.shuffle_dataset else dataset
         dataset = dataset.repeat()
         dataset = dataset.batch(self.batch_size, drop_remainder=True)
-        return dataset.prefetch(100)
+        return dataset.prefetch(10)
 
     @property
     @abstractmethod
