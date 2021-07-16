@@ -121,7 +121,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
         training_step += 1
         if training_step >= experiment_config.training_steps:
             break
-    if best_evaluation_losses[0] > 4000:
+    if best_evaluation_losses[0] > 4000 or best_evaluation_losses[2] < 0.45:
         return
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)
