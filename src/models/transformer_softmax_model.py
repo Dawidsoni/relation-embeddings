@@ -25,7 +25,9 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         self.pre_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.pre_dropout_layer = tf.keras.layers.Dropout(rate=self.model_config.pre_dropout_rate)
         self.transformer_layer = StackedTransformerEncodersLayer()
-        self.post_hidden_layer = tf.keras.layers.Dense(units=self.embeddings_layer.config.embeddings_dimension)
+        self.post_hidden_layer = tf.keras.layers.Dense(
+            units=self.embeddings_layer.config.embeddings_dimension, activation=tf.nn.relu,
+        )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.post_projection_layer = tf.keras.layers.Dense(units=self.embeddings_layer.config.entities_count)
 
