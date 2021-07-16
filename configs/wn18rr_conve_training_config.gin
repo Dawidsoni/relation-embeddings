@@ -48,8 +48,8 @@ PiecewiseLinearDecayScheduler.warmup_steps = 0
 # Training model
 
 ExperimentConfig.experiment_name = "conve_wn18rr_baseline"
-ExperimentConfig.training_steps = 50_000
-ExperimentConfig.steps_per_evaluation = 500
+ExperimentConfig.training_steps = 80_000
+ExperimentConfig.steps_per_evaluation = 1000
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
