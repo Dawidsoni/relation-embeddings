@@ -5,13 +5,21 @@ from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 
 class TestLearningRateSchedulers(tf.test.TestCase):
 
-    def test_fold_points(self):
+    def test_decay_rate_one(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=0,
+            initial_learning_rate=0.1, decay_steps=100, decay_rate=1.0, warmup_steps=0,
         )
         self.assertAllClose(0.1, scheduler(0))
-        self.assertAllClose(0.01, scheduler(100))
-        self.assertAllClose(0.001, scheduler(200))
+        self.assertAllClose(0.1, scheduler(100))
+        self.assertAllClose(0.1, scheduler(200))
+
+    def test_fold_points(self):
+        scheduler = PiecewiseLinearDecayScheduler(
+            initial_learning_rate=0.3, decay_steps=100, decay_rate=0.1, warmup_steps=0,
+        )
+        self.assertAllClose(0.3, scheduler(0))
+        self.assertAllClose(0.03, scheduler(100))
+        self.assertAllClose(0.003, scheduler(200))
 
     def test_points_between_folds(self):
         scheduler = PiecewiseLinearDecayScheduler(
