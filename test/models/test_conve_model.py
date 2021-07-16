@@ -7,8 +7,6 @@ from optimization.datasets import MaskedEntityOfEdgeDataset, DatasetType
 
 class TestConvEModel(tf.test.TestCase):
     DATASET_PATH = '../../data/test_data'
-    MASKED_HEAD_OBJECT_TYPES = [ObjectType.SPECIAL_TOKEN.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
-    MASKED_TAIL_OBJECT_TYPES = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.SPECIAL_TOKEN.value]
 
     def setUp(self):
         dataset = MaskedEntityOfEdgeDataset(
