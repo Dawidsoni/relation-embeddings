@@ -10,7 +10,7 @@ class SelfAttentionLayer(tf.keras.layers.Layer):
         super(SelfAttentionLayer, self).__init__()
         self.attention_layer = tf.keras.layers.MultiHeadAttention(
             num_heads=heads_count,
-            key_dim=attention_head_dimension,
+            key_dim=attention_head_dimension // heads_count,
             dropout=dropout_rate,
         )
 

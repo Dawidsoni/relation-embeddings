@@ -66,7 +66,7 @@ class TestTransformerLayers(tf.test.TestCase):
             encoder_layer_type=TransformerEncoderLayerType.POST_LAYER_NORM,
         )
         layer(tf.ones(shape=(32, 10, 512)))
-        self.assertEqual(126_038_016, layer.count_params())
+        self.assertEqual(37_828_608, layer.count_params())
 
     def test_stacked_transformer_encoder_shared_layer_params(self):
         layer = StackedTransformerEncodersLayer(
@@ -79,7 +79,7 @@ class TestTransformerLayers(tf.test.TestCase):
             encoder_layer_type=TransformerEncoderLayerType.POST_LAYER_NORM,
         )
         layer(tf.ones(shape=(32, 10, 512)))
-        self.assertEqual(10_503_168, layer.count_params())
+        self.assertEqual(3_152_384, layer.count_params())
 
     def test_stacked_transformer_encoder_pre_layer_norm(self):
         layer = StackedTransformerEncodersLayer(
