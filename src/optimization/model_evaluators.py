@@ -121,14 +121,14 @@ class SamplingModelEvaluator(ModelEvaluator):
         head_metrics = EvaluationMetrics()
         tail_metrics = EvaluationMetrics()
         for sample in _unbatch_samples(batched_samples):
-            head_samples = self.edges_producer.produce_head_edges(sample, target_pattern_index=0)
+            head_samples, head_target_index = self.edges_producer.produce_head_edges(sample)
             head_predictions = self.model.predict(head_samples, batch_size=self.EVAL_BATCH_SIZE)
             head_losses = self.loss_object.get_losses_of_positive_samples(head_predictions)
-            head_metrics.update_state(head_losses.numpy(), positive_sample_index=0)
-            tail_samples = self.edges_producer.produce_tail_edges(sample, target_pattern_index=0)
+            head_metrics.update_state(head_losses.numpy(), positive_sample_index=head_target_index)
+            tail_samples, tail_target_index = self.edges_producer.produce_tail_edges(sample)
             tail_predictions = self.model.predict(tail_samples, batch_size=self.EVAL_BATCH_SIZE)
             tail_losses = self.loss_object.get_losses_of_positive_samples(tail_predictions)
-            tail_metrics.update_state(tail_losses.numpy(), positive_sample_index=0)
+            tail_metrics.update_state(tail_losses.numpy(), positive_sample_index=tail_target_index)
         average_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
         return {
             "metrics_head": head_metrics,
@@ -196,13 +196,13 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         tail_metrics = EvaluationMetrics()
         losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()
         for sample, ranking in zip(_unbatch_samples(batched_samples), losses_ranking):
-            filtered_ranking = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
-                sample["edge_ids"], sample["mask_index"], values=ranking, target_index=0,
+            filtered_ranking, target_index = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
+                sample["edge_ids"], sample["mask_index"], values=ranking
             )
             if sample["mask_index"] == 0:
-                head_metrics.update_state(filtered_ranking, positive_sample_index=0)
+                head_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
             elif sample["mask_index"] == 2:
-                tail_metrics.update_state(filtered_ranking, positive_sample_index=0)
+                tail_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
             else:
                 raise ValueError(f"Invalid `mask_index`: {sample['mask_index']}")
         average_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
