@@ -3,6 +3,8 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 import functools
+
+from models.transformer_softmax_model import TransformerSoftmaxModel
 from optimization import datasets
 
 import numpy as np
@@ -53,6 +55,7 @@ class ModelType(Enum):
     TRANSFORMER_TRANSE = 4
     TRANSFORMER_BINARY = 5
     CONVE = 6
+    TRANSFORMER_SOFTMAX = 7
 
 
 def _create_loss_object(loss_type: LossType):
@@ -75,6 +78,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config),
         ModelType.TRANSFORMER_BINARY: lambda: TransformerBinaryModel(embeddings_config),
         ModelType.CONVE: lambda: ConvEModel(embeddings_config),
+        ModelType.TRANSFORMER_SOFTMAX: lambda: TransformerSoftmaxModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -122,6 +126,7 @@ def _create_dataset(
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_neighbours_dataset_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_neighbours_dataset_initializer(),
         ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX: lambda: masked_entity_of_edge_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -148,6 +153,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_trainer_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_trainer_initializer(),
         ModelType.CONVE: lambda: softmax_trainer_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -184,6 +190,7 @@ def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, los
         ModelType.TRANSFORMER_TRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.TRANSFORMER_BINARY: lambda: sampling_evaluator_initializer(),
         ModelType.CONVE: lambda: softmax_evaluator_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
