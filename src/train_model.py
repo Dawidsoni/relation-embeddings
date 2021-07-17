@@ -115,7 +115,7 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
             if any([best_evaluation_losses[index] > loss for index, loss in enumerate(evaluation_losses)]):
                 for index, loss in enumerate(evaluation_losses):
                     best_evaluation_losses[index] = loss
-                logger.info(f"Updating best model (evaluation losses: {best_evaluation_losses})")
+                logger.info(f"Updating the best model found (evaluation losses: {evaluation_losses}")
                 state.test_evaluator.build_model()
                 state.best_model.set_weights(state.model.get_weights())
         training_step += 1
