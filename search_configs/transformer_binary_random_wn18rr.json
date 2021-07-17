@@ -71,22 +71,6 @@
         {
             "parameter_name": "PiecewiseLinearDecayScheduler.decay_rate",
             "parameter_values": [0.25, 0.5, 1.0]
-        },
-        {
-            "parameter_name": "ExperimentConfig.training_steps",
-            "parameter_values": [100000]
-        },
-        {
-            "parameter_name": "ExperimentConfig.steps_per_evaluation",
-            "parameter_values": [500]
-        },
-        {
-            "parameter_name": "PiecewiseLinearDecayScheduler.decay_steps",
-            "parameter_values": [50000]
-        },
-        {
-            "parameter_name": "PiecewiseLinearDecayScheduler.warmup_steps",
-            "parameter_values": [10000]
         }
     ],
     "banned_parameter_configs": [

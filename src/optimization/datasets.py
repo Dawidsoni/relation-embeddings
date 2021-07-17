@@ -124,7 +124,7 @@ class Dataset(object):
         dataset = dataset.shuffle(buffer_size=1000) if self.shuffle_dataset else dataset
         dataset = dataset.repeat()
         dataset = dataset.batch(self.batch_size, drop_remainder=True)
-        return dataset.prefetch(10)
+        return dataset.prefetch(5)
 
     @property
     @abstractmethod
