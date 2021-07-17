@@ -1,0 +1,62 @@
+# Dataset
+
+MaskedEntityOfEdgeDataset.data_directory = "../data/WN18RR"
+MaskedEntityOfEdgeDataset.batch_size = 512
+
+
+# LossObject
+
+create_knowledge_base_state.loss_type = %LossType.CROSS_ENTROPY
+LossObject.regularization_strength = 0.0
+CrossEntropyLossObject.label_smoothing = 0.0
+
+
+# Embeddings configuration
+
+EmbeddingsConfig.embeddings_dimension = 512
+EmbeddingsConfig.trainable_embeddings = True
+EmbeddingsConfig.use_position_embeddings = True
+EmbeddingsConfig.position_embeddings_max_inputs_length = 3
+EmbeddingsConfig.use_fourier_series_in_position_embeddings = False
+EmbeddingsConfig.position_embeddings_trainable = True
+
+_create_embeddings_config.entity_embeddings_path = None
+_create_embeddings_config.relation_embeddings_path = None
+_create_embeddings_config.position_embeddings_path = None
+_create_embeddings_config.special_token_embeddings_path = None
+
+
+# TransformerSoftmax model
+
+StackedTransformerEncodersLayer.layers_count = 12
+StackedTransformerEncodersLayer.attention_heads_count = 4
+StackedTransformerEncodersLayer.attention_head_dimension = 256
+StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 512
+StackedTransformerEncodersLayer.dropout_rate = 0.5
+StackedTransformerEncodersLayer.share_encoder_parameters = False
+StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
+
+TransformerSoftmaxModelConfig.use_pre_normalization = True
+TransformerSoftmaxModelConfig.pre_dropout_rate = 0.5
+TransformerSoftmaxModelConfig.use_sigmoid_as_output_layer = False
+
+TransformerSoftmaxModel.model_config = @TransformerSoftmaxModelConfig()
+create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_SOFTMAX
+
+
+# Creating a learning rate schedule
+
+PiecewiseLinearDecayScheduler.initial_learning_rate = 5e-4
+PiecewiseLinearDecayScheduler.decay_steps = 40_000
+PiecewiseLinearDecayScheduler.decay_rate = 1.0
+PiecewiseLinearDecayScheduler.warmup_steps = 8000
+
+
+# Training model
+
+ExperimentConfig.experiment_name = "transformer_softmax_wn18rr_baseline"
+ExperimentConfig.training_steps = 80_000
+ExperimentConfig.steps_per_evaluation = 1000
+ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
+ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
+ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
