@@ -85,11 +85,12 @@ def get_existing_graph_edges(data_directory):
 class Dataset(object):
     EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
-    def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False):
+    def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False, prefetched_samples=10):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
         self.shuffle_dataset = shuffle_dataset
+        self.prefetched_samples = prefetched_samples
         entity_ids = _extract_entity_ids(data_directory)
         relation_ids = _extract_relation_ids(data_directory)
         self.ids_of_entities = list(entity_ids.values())
@@ -124,7 +125,7 @@ class Dataset(object):
         dataset = dataset.shuffle(buffer_size=1000) if self.shuffle_dataset else dataset
         dataset = dataset.repeat()
         dataset = dataset.batch(self.batch_size, drop_remainder=True)
-        return dataset.prefetch(5)
+        return dataset.prefetch(self.prefetched_samples)
 
     @property
     @abstractmethod
@@ -143,9 +144,11 @@ class SamplingEdgeDataset(Dataset):
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
         negatives_per_positive=1, sample_weights_model=None, sample_weights_loss_object=None,
-        sample_weights_count=100
+        sample_weights_count=100, prefetched_samples=10,
     ):
-        super(SamplingEdgeDataset, self).__init__(dataset_type, data_directory, batch_size, shuffle_dataset)
+        super(SamplingEdgeDataset, self).__init__(
+            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples
+        )
         self.negatives_per_positive = negatives_per_positive
         self.sample_weights_model = sample_weights_model
         self.sample_weights_loss_object = sample_weights_loss_object
@@ -324,10 +327,10 @@ class SoftmaxDataset(Dataset, metaclass=ABCMeta):
 class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False, prefetched_samples=10
     ):
         super(MaskedEntityOfEdgeDataset, self).__init__(
-            dataset_type, data_directory, batch_size, shuffle_dataset
+            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples
         )
 
     def _get_sample_specification(self):

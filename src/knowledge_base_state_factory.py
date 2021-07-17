@@ -89,6 +89,7 @@ def _create_dataset(
     dataset_type,
     model_type: ModelType,
     batch_size,
+    prefetched_samples,
     shuffle_dataset=False,
     sample_weights_model=None,
     sample_weights_loss_object=None,
@@ -101,6 +102,7 @@ def _create_dataset(
         shuffle_dataset=shuffle_dataset,
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
+        prefetched_samples=prefetched_samples,
     )
     sampling_neighbours_dataset_initializer = functools.partial(
         SamplingNeighboursDataset,
@@ -111,6 +113,7 @@ def _create_dataset(
         shuffle_dataset=shuffle_dataset,
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
+        prefetched_samples=prefetched_samples,
     )
     masked_entity_of_edge_dataset_initializer = functools.partial(
         MaskedEntityOfEdgeDataset,
@@ -118,6 +121,7 @@ def _create_dataset(
         data_directory=gin.REQUIRED,
         batch_size=batch_size,
         shuffle_dataset=shuffle_dataset,
+        prefetched_samples=prefetched_samples,
     )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
@@ -160,9 +164,12 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
     return type_mappings[model_type]()
 
 
-def _create_model_evaluator(outputs_folder, dataset_type, model_type, model, loss_object, learning_rate_scheduler):
+def _create_model_evaluator(
+    outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler
+):
     evaluation_dataset = _create_dataset(
-        dataset_type, batch_size=200, shuffle_dataset=True, model_type=model_type
+        dataset_type, batch_size=200, shuffle_dataset=True, model_type=model_type,
+        prefetched_samples=prefetched_samples,
     )
     existing_graph_edges = datasets.get_existing_graph_edges(evaluation_dataset.data_directory)
     sampling_evaluator_initializer = functools.partial(
@@ -205,7 +212,7 @@ def _create_embeddings_config(
     position_embeddings_path=gin.REQUIRED,
     special_token_embeddings_path=gin.REQUIRED,
 ):
-    dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1)
+    dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10)
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
     )
@@ -258,6 +265,7 @@ def create_knowledge_base_state(
         model_type=model_type,
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
+        prefetched_samples=10,
     )
     init_eval = functools.partial(
         _create_model_evaluator,
@@ -270,9 +278,14 @@ def create_knowledge_base_state(
         training_dataset=training_dataset,
         loss_object=loss_object,
         model_trainer=_create_model_trainer(model_type, model, loss_object, learning_rate_scheduler),
-        training_evaluator=init_eval(model=model, outputs_folder=path_func("train"), dataset_type=DatasetType.TRAINING),
-        validation_evaluator=init_eval(
-            model=model, outputs_folder=path_func("validation"), dataset_type=DatasetType.VALIDATION
+        training_evaluator=init_eval(
+            model=model, outputs_folder=path_func("train"), dataset_type=DatasetType.TRAINING, prefetched_samples=3,
         ),
-        test_evaluator=init_eval(model=best_model, outputs_folder=path_func("test"), dataset_type=DatasetType.TEST),
+        validation_evaluator=init_eval(
+            model=model, outputs_folder=path_func("validation"), dataset_type=DatasetType.VALIDATION,
+            prefetched_samples=3,
+        ),
+        test_evaluator=init_eval(
+            model=best_model, outputs_folder=path_func("test"), dataset_type=DatasetType.TEST, prefetched_samples=1,
+        ),
     )
