@@ -142,7 +142,7 @@ class SamplingModelEvaluator(ModelEvaluator):
         tf.summary.scalar(name="losses/positive_samples_loss", data=positive_samples_loss, step=step)
         regularization_loss = self.loss_object.get_regularization_loss(self.model)
         tf.summary.scalar(name="losses/regularization_loss", data=regularization_loss, step=step)
-        return positive_samples_loss
+        return positive_samples_loss.numpy()
 
     def _compute_and_report_model_outputs(self, positive_samples, step):
         positive_outputs = self.model(positive_samples, training=False)
@@ -221,7 +221,7 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         tf.summary.scalar(name="losses/samples_loss", data=loss_value, step=step)
         regularization_loss = self.loss_object.get_regularization_loss(self.model)
         tf.summary.scalar(name="losses/regularization_loss", data=regularization_loss, step=step)
-        return loss_value
+        return loss_value.numpy()
 
     def build_model(self):
         self.model(next(self.iterator_of_samples), training=False)

@@ -27,29 +27,20 @@ class ExperimentConfig(object):
 
 class TrainingStopper(object):
 
-    def __init__(self, losses_to_keep=10, expected_improvement=1.0):
-        self.losses_to_keep = losses_to_keep
-        self.losses_queue = collections.deque()
-        self.expected_improvement = expected_improvement
+    def __init__(self, iterations_to_stop=7):
+        self.iterations_to_stop = iterations_to_stop
+        self.best_value = float("inf")
+        self.iterations_since_best_value = 0
 
     def add_loss_value(self, loss_value):
-        self.losses_queue.append(loss_value)
-        while len(self.losses_queue) > self.losses_to_keep:
-            self.losses_queue.popleft()
+        if loss_value <= self.best_value:
+            self.best_value = loss_value
+            self.iterations_since_best_value = 0
+        else:
+            self.iterations_since_best_value += 1
 
     def should_training_stop(self):
-        if len(self.losses_queue) < self.losses_to_keep:
-            return False
-        split_index = int(self.losses_to_keep / 2)
-        prev_elements_mean = np.mean(list(self.losses_queue)[:split_index])
-        last_elements_mean = np.mean(list(self.losses_queue)[split_index:])
-        prev_elements_median = np.median(list(self.losses_queue)[:split_index])
-        last_elements_median = np.median(list(self.losses_queue)[split_index:])
-        if last_elements_mean / max(prev_elements_mean, 1e-6) <= self.expected_improvement:
-            return False
-        if last_elements_median / max(prev_elements_median, 1e-6) <= self.expected_improvement:
-            return False
-        return True
+        return self.iterations_since_best_value >= self.iterations_to_stop
 
 
 def parse_training_args():

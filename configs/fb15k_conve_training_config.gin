@@ -40,7 +40,7 @@ create_knowledge_base_state.model_type = %ModelType.CONVE
 # Creating a learning rate schedule
 
 PiecewiseLinearDecayScheduler.initial_learning_rate = 1e-3
-PiecewiseLinearDecayScheduler.decay_steps = 50_000
+PiecewiseLinearDecayScheduler.decay_steps = 80_000
 PiecewiseLinearDecayScheduler.decay_rate = 1.0
 PiecewiseLinearDecayScheduler.warmup_steps = 0
 
@@ -48,8 +48,8 @@ PiecewiseLinearDecayScheduler.warmup_steps = 0
 # Training model
 
 ExperimentConfig.experiment_name = "conve_fb15k_baseline"
-ExperimentConfig.training_steps = 100_000
-ExperimentConfig.steps_per_evaluation = 2000
+ExperimentConfig.training_steps = 160_000
+ExperimentConfig.steps_per_evaluation = 4000
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
