@@ -22,6 +22,7 @@ class EmbeddingsConfig(object):
     position_embeddings_max_inputs_length: int = 3
     use_fourier_series_in_position_embeddings: bool = False
     position_embeddings_trainable: bool = False
+    special_tokens_count: int = 5
 
 
 class ObjectType(enum.Enum):
@@ -128,7 +129,7 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
                 name="special_token_embeddings",
                 trainable=False,
             )
-        special_tokens_shape = [1, self.config.embeddings_dimension]
+        special_tokens_shape = [self.config.special_tokens_count, self.config.embeddings_dimension]
         return tf.Variable(
             self._get_initial_embedding_values(special_tokens_shape, self.config.pretrained_special_token_embeddings),
             name='special_token_embeddings',

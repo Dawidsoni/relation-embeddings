@@ -142,9 +142,10 @@ class TestEmbeddingsLayers(tf.test.TestCase):
 
     def test_embeddings_extraction_layer_special_token_embeddings_used(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
-            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True
+            entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True,
+            special_tokens_count=3,
         ))
-        self.assertEqual((1, 4), layer.special_token_embeddings.shape)
+        self.assertEqual((3, 4), layer.special_token_embeddings.shape)
 
     def test_embeddings_extraction_layer_special_token_embeddings_not_used(self):
         layer = EmbeddingsExtractionLayer(EmbeddingsConfig(
