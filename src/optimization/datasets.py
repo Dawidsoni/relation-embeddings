@@ -18,6 +18,10 @@ TEST_DATASET_FILENAME = "test.txt"
 ENTITIES_IDS_FILENAME = 'entity2id.txt'
 RELATIONS_IDS_FILENAME = 'relation2id.txt'
 
+MASKED_ENTITY_TOKEN_ID = 0
+MISSING_ENTITY_TOKEN_ID = 1
+MISSING_RELATION_TOKEN_ID = 2
+
 
 class DatasetType(enum.Enum):
     TRAINING = 0
@@ -67,6 +71,20 @@ def _interleave_datasets(dataset1, dataset2):
     return tf.data.Dataset.zip((dataset1, dataset2)).flat_map(
         lambda x1, x2: tf.data.Dataset.from_tensors(x1).concatenate(tf.data.Dataset.from_tensors(x2))
     )
+
+
+def _sample_edges(edges, banned_edges, neighbours_per_sample):
+    if len(edges) > neighbours_per_sample:
+        chosen_indexes = np.random.choice(len(edges), size=neighbours_per_sample + 1, replace=False)
+        chosen_edges = [edges[index] for index in chosen_indexes if edges[index] not in banned_edges]
+        return list(itertools.chain(*chosen_edges[:neighbours_per_sample])), 0
+    chosen_edges = [edge for edge in edges if edge not in banned_edges]
+    missing_edges = [
+        (MISSING_ENTITY_TOKEN_ID, MISSING_RELATION_TOKEN_ID)
+        for _ in range(neighbours_per_sample - len(chosen_edges))
+    ]
+    edges = list(itertools.chain(*chosen_edges)) + list(itertools.chain(*missing_edges))
+    return edges, len(missing_edges)
 
 
 def get_existing_graph_edges(data_directory):
@@ -239,8 +257,6 @@ class SamplingEdgeDataset(Dataset):
 
 @gin.configurable
 class SamplingNeighboursDataset(SamplingEdgeDataset):
-    MISSING_EDGE_ENTITY_ID = 0
-    MISSING_EDGE_RELATION_ID = 1
     NEIGHBOUR_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value)
 
     def __init__(
@@ -251,27 +267,18 @@ class SamplingNeighboursDataset(SamplingEdgeDataset):
         )
         self.neighbours_per_sample = neighbours_per_sample
 
-    def _sample_edges(self, edges, banned_edges):
-        if len(edges) > self.neighbours_per_sample:
-            chosen_indexes = np.random.choice(len(edges), size=self.neighbours_per_sample + 1, replace=False)
-            chosen_edges = [edges[index] for index in chosen_indexes if edges[index] not in banned_edges]
-            return list(itertools.chain(*chosen_edges[:self.neighbours_per_sample])), 0
-        chosen_edges = [edge for edge in edges if edge not in banned_edges]
-        missing_edges = [
-            (self.MISSING_EDGE_ENTITY_ID, self.MISSING_EDGE_RELATION_ID)
-            for _ in range(self.neighbours_per_sample - len(chosen_edges))
-        ]
-        edges = list(itertools.chain(*chosen_edges)) + list(itertools.chain(*missing_edges))
-        return edges, len(missing_edges)
-
     def _produce_object_ids_with_types(self, edges):
         object_ids, object_types = [], []
         for head_id, relation_id, tail_id in edges.numpy():
-            sampled_output_edges, missing_output_edges_count = self._sample_edges(
-                self.known_entity_output_edges[head_id], banned_edges=[(tail_id, relation_id)]
+            sampled_output_edges, missing_output_edges_count = _sample_edges(
+                self.known_entity_output_edges[head_id],
+                banned_edges=[(tail_id, relation_id)],
+                neighbours_per_sample=self.neighbours_per_sample,
             )
-            sampled_input_edges, missing_input_edges_count = self._sample_edges(
-                self.known_entity_input_edges[tail_id], banned_edges=[(head_id, relation_id)]
+            sampled_input_edges, missing_input_edges_count = _sample_edges(
+                self.known_entity_input_edges[tail_id],
+                banned_edges=[(head_id, relation_id)],
+                neighbours_per_sample=self.neighbours_per_sample,
             )
             object_ids.append([head_id, relation_id, tail_id] + sampled_output_edges + sampled_input_edges)
             outputs_types = list(np.concatenate((
@@ -349,7 +356,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
             edge_ids = [head_id, relation_id, tail_id]
             output_index = edge_ids[mask_index]
             object_ids = [head_id, relation_id, tail_id]
-            object_ids[mask_index] = 0
+            object_ids[mask_index] = MASKED_ENTITY_TOKEN_ID
             object_types = list(self.EDGE_OBJECT_TYPES)
             object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
@@ -372,3 +379,83 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
             lambda: self._generate_samples(mask_index=2), output_signature=sample_specification,
         )
         return self._get_processed_dataset(_interleave_datasets(head_samples, tail_samples))
+
+
+@gin.configurable
+class MaskedEntityWithNeighboursDataset(MaskedEntityOfEdgeDataset):
+    NEIGHBOUR_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value)
+
+    def __init__(
+        self, dataset_type, data_directory, batch_size, neighbours_per_sample, shuffle_dataset=False, **kwargs
+    ):
+        super(MaskedEntityWithNeighboursDataset, self).__init__(
+            dataset_type, data_directory, batch_size, shuffle_dataset, **kwargs
+        )
+        self.neighbours_per_sample = neighbours_per_sample
+
+    def _produce_object_ids_with_types(self, edges, mask_indexes):
+        object_ids, object_types = [], []
+        for edge, mask_index in zip(edges.numpy(), mask_indexes.numpy()):
+            head_id, relation_id, tail_id = edge
+            if mask_index == 0:
+                sampled_edges, missing_edges_count = _sample_edges(
+                    self.known_entity_input_edges[tail_id],
+                    banned_edges=[(head_id, relation_id)],
+                    neighbours_per_sample=self.neighbours_per_sample,
+                )
+            elif mask_index == 2:
+                sampled_edges, missing_edges_count = _sample_edges(
+                    self.known_entity_output_edges[head_id],
+                    banned_edges=[(tail_id, relation_id)],
+                    neighbours_per_sample=self.neighbours_per_sample,
+                )
+            else:
+                raise ValueError(f"Expected mask index to be contained in the set {{0, 2}}, got: {mask_index}")
+            edge_ids = [head_id, relation_id, tail_id]
+            edge_ids[mask_index] = MASKED_ENTITY_TOKEN_ID
+            object_ids.append(edge_ids + sampled_edges)
+            neighbours_types = list(np.concatenate((
+                np.tile(self.NEIGHBOUR_OBJECT_TYPES, reps=self.neighbours_per_sample - missing_edges_count),
+                np.tile(ObjectType.SPECIAL_TOKEN.value, reps=2 * missing_edges_count),
+            )))
+            masked_edge_object_types = list(self.EDGE_OBJECT_TYPES)
+            masked_edge_object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+            object_types.append(masked_edge_object_types + neighbours_types)
+        return np.array(object_ids), np.array(object_types)
+
+    def _produce_positions(self, mask_indexes):
+        list_of_positions = []
+        for mask_index in mask_indexes.numpy():
+            if mask_index not in [0, 2]:
+                raise ValueError(f"Expected mask index to be contained in the set {{0, 2}}, got: {mask_index}")
+            neighbour_positions = (3, 4) if mask_index == 0 else (5, 6)
+            positions = [0, 1, 2]
+            positions.extend(itertools.chain(*[neighbour_positions for _ in range(self.neighbours_per_sample)]))
+            list_of_positions.append(positions)
+        return np.array(list_of_positions, dtype=np.int32)
+
+    def _map_batched_samples(self, samples):
+        object_ids, object_types = tf.py_function(
+            self._produce_object_ids_with_types,
+            inp=[samples["edge_ids"], samples["mask_index"]],
+            Tout=(tf.int32, tf.int32),
+        )
+        positions = tf.py_function(
+            self._produce_positions, inp=[samples["mask_index"]], Tout=tf.int32
+        )
+        updated_samples = {
+            "object_ids": object_ids,
+            "object_types": object_types,
+            "positions": positions,
+        }
+        for key, values in samples.items():
+            if key in updated_samples:
+                continue
+            updated_samples[key] = values
+        return updated_samples
+
+    @property
+    def samples(self):
+        edge_samples = super(MaskedEntityWithNeighboursDataset, self).samples
+        return edge_samples.map(self._map_batched_samples)
+
