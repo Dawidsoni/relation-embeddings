@@ -382,6 +382,42 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
 
 @gin.configurable
+class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
+
+    def __init__(self, **kwargs):
+        super(MaskedAllNeighboursDataset, self).__init__(**kwargs)
+
+    def _produce_one_hot_outputs(self, edges, true_entity_indexes):
+        one_hot_outputs = np.zeros((edges.shape[0], self.entities_count), dtype=np.float32)
+        for sample_index, (edge, true_entity_index) in enumerate(zip(edges.numpy(), true_entity_indexes.numpy())):
+            entity_id, relation_id = edge[true_entity_index], edge[1]
+            if true_entity_index == 0:
+                neighbours = self.entity_output_edges[entity_id] + self.known_entity_output_edges[entity_id]
+            elif true_entity_index == 2:
+                neighbours = self.entity_input_edges[entity_id] + self.known_entity_input_edges[entity_id]
+            else:
+                raise ValueError(f"Invalid true_entity_index: {true_entity_index}")
+            for neighbour_entity_id, neighbour_relation_id in neighbours:
+                if neighbour_relation_id == relation_id:
+                    one_hot_outputs[sample_index, neighbour_entity_id] = 1.0
+        return one_hot_outputs
+
+    def _map_batched_samples(self, samples):
+        one_hot_outputs = tf.py_function(
+            self._produce_one_hot_outputs,
+            inp=[samples["edge_ids"], samples["true_entity_index"]],
+            Tout=tf.float32,
+        )
+        updated_samples = {"one_hot_output": one_hot_outputs}
+        return {key: updated_samples[key] if key in updated_samples else values for key, values in samples.items()}
+
+    @property
+    def samples(self):
+        edge_samples = super(MaskedAllNeighboursDataset, self).samples
+        return edge_samples.map(self._map_batched_samples)
+
+
+@gin.configurable
 class MaskedEntityWithNeighboursDataset(MaskedEntityOfEdgeDataset):
     NEIGHBOUR_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value)
 
