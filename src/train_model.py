@@ -27,20 +27,23 @@ class ExperimentConfig(object):
 
 class TrainingStopper(object):
 
-    def __init__(self, iterations_to_stop=7):
+    def __init__(self, iterations_to_stop=10):
         self.iterations_to_stop = iterations_to_stop
-        self.best_value = float("inf")
-        self.iterations_since_best_value = 0
+        self.best_value = float("-inf")
+        self.iterations_since_best_value = -1
 
-    def add_loss_value(self, loss_value):
-        if loss_value <= self.best_value:
-            self.best_value = loss_value
+    def add_metric_value(self, metric_value):
+        if metric_value > self.best_value:
+            self.best_value = metric_value
             self.iterations_since_best_value = 0
         else:
             self.iterations_since_best_value += 1
 
     def should_training_stop(self):
         return self.iterations_since_best_value >= self.iterations_to_stop
+
+    def last_value_optimal(self):
+        return self.iterations_since_best_value == 0
 
 
 def parse_training_args():
@@ -84,9 +87,8 @@ def log_experiment_information(logger, experiment_name, gin_configs, gin_binding
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
-    training_stoppers = collections.defaultdict(lambda: TrainingStopper())
+    training_stopper = TrainingStopper()
     training_step = 1
-    best_evaluation_losses = collections.defaultdict(lambda: float("inf"))
     for training_samples in state.training_dataset.samples:
         logger.info(f"Performing training step {training_step}")
         training_loss = state.model_trainer.train_step(training_samples, training_step)
@@ -97,22 +99,19 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
             logger.info(f"Evaluating a model on training data")
             state.training_evaluator.evaluation_step(training_step)
             logger.info(f"Evaluating a model on validation data")
-            evaluation_losses = state.validation_evaluator.evaluation_step(training_step)
-            for index, evaluation_loss in enumerate(evaluation_losses):
-                training_stoppers[index].add_loss_value(evaluation_loss)
-            if all([stopper.should_training_stop() for stopper in training_stoppers.values()]):
-                logger.info(f"Finishing experiment due to high value of evaluation losses: {evaluation_losses}")
+            evaluation_mrr_metric = state.validation_evaluator.evaluation_step(training_step)
+            training_stopper.add_metric_value(evaluation_mrr_metric)
+            if training_stopper.should_training_stop():
+                logger.info(f"Finishing experiment due to high value of evaluation losses: {evaluation_mrr_metric}")
                 break
-            if any([best_evaluation_losses[index] > loss for index, loss in enumerate(evaluation_losses)]):
-                for index, loss in enumerate(evaluation_losses):
-                    best_evaluation_losses[index] = loss
-                logger.info(f"Updating the best model found (evaluation losses: {evaluation_losses}")
+            elif training_stopper.last_value_optimal():
+                logger.info(f"Updating the best model found (evaluation losses: {evaluation_mrr_metric}")
                 state.test_evaluator.build_model()
                 state.best_model.set_weights(state.model.get_weights())
         training_step += 1
         if training_step >= experiment_config.training_steps:
             break
-    if best_evaluation_losses[0] > 4000 or best_evaluation_losses[2] > 0.55:
+    if training_stopper.best_value < 0.3:
         return
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)

@@ -167,17 +167,15 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
 def _create_model_evaluator(
     outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler
 ):
-    evaluation_dataset = _create_dataset(
-        dataset_type, batch_size=200, shuffle_dataset=True, model_type=model_type,
-        prefetched_samples=prefetched_samples,
+    dataset_initializer = functools.partial(
+        _create_dataset, dataset_type=dataset_type, shuffle_dataset=True, model_type=model_type,
+        prefetched_samples=prefetched_samples
     )
-    existing_graph_edges = datasets.get_existing_graph_edges(evaluation_dataset.data_directory)
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
         model=model,
         loss_object=loss_object,
-        dataset=evaluation_dataset,
-        existing_graph_edges=existing_graph_edges,
+        dataset=dataset_initializer(batch_size=200),
         output_directory=outputs_folder,
         learning_rate_scheduler=learning_rate_scheduler,
     )
@@ -185,8 +183,7 @@ def _create_model_evaluator(
         SoftmaxModelEvaluator,
         model=model,
         loss_object=loss_object,
-        dataset=evaluation_dataset,
-        existing_graph_edges=existing_graph_edges,
+        dataset=dataset_initializer(batch_size=500),
         output_directory=outputs_folder,
         learning_rate_scheduler=learning_rate_scheduler,
     )

@@ -3,6 +3,7 @@ from typing import Optional, List, Tuple, Union
 import tensorflow as tf
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
+from optimization import datasets
 from optimization.datasets import SamplingEdgeDataset, Dataset, SoftmaxDataset
 from optimization.edges_producer import EdgesProducer
 from optimization.evaluation_metrics import EvaluationMetrics
@@ -26,11 +27,6 @@ def _unbatch_samples(batched_samples):
         {key: values[index] for key, values in batched_samples.items()}
         for index in range(batch_size)
     ]
-
-
-def _extract_lower_is_better_metrics(metrics):
-    mean_rank, mean_reciprocal_rank, hits10 = metrics.result()
-    return mean_rank, 1.0 - mean_reciprocal_rank, 1.0 - hits10
 
 
 def _log_dict_of_metrics(logger, dict_of_metrics):
@@ -99,23 +95,10 @@ class ModelEvaluator(object):
 class SamplingModelEvaluator(ModelEvaluator):
     EVAL_BATCH_SIZE = 10_000
 
-    def __init__(
-        self,
-        model: KnowledgeCompletionModel,
-        loss_object: SamplingLossObject,
-        dataset: SamplingEdgeDataset,
-        existing_graph_edges: List[Tuple],
-        output_directory: str,
-        learning_rate_scheduler: Optional[LearningRateSchedule] = None,
-    ):
-        super(SamplingModelEvaluator, self).__init__(
-            model=model,
-            loss_object=loss_object,
-            dataset=dataset,
-            output_directory=output_directory,
-            learning_rate_scheduler=learning_rate_scheduler,
-        )
-        self.edges_producer = EdgesProducer(dataset.ids_of_entities, existing_graph_edges)
+    def __init__(self, **kwargs):
+        super(SamplingModelEvaluator, self).__init__(**kwargs)
+        existing_graph_edges = datasets.get_existing_graph_edges(self.dataset.data_directory)
+        self.edges_producer = EdgesProducer(self.dataset.ids_of_entities, existing_graph_edges)
 
     def _compute_metrics_on_samples(self, batched_samples):
         head_metrics = EvaluationMetrics()
@@ -159,10 +142,10 @@ class SamplingModelEvaluator(ModelEvaluator):
         positive_samples, unused_negative_samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
             metrics = self._compute_and_report_metrics(positive_samples, step)
-            loss_value = self._compute_and_report_losses(positive_samples, step)
+            self._compute_and_report_losses(positive_samples, step)
             self._compute_and_report_model_outputs(positive_samples, step)
             self._maybe_report_learning_rate(step)
-        return _extract_lower_is_better_metrics(metrics["metrics_averaged"]) + (loss_value, )
+        return metrics["metrics_averaged"].result()[1]
 
     def log_metrics(self, logger):
         positive_samples_iterator = self.dataset.samples.map(
@@ -174,23 +157,10 @@ class SamplingModelEvaluator(ModelEvaluator):
 
 class SoftmaxModelEvaluator(ModelEvaluator):
 
-    def __init__(
-        self,
-        model: KnowledgeCompletionModel,
-        loss_object: SupervisedLossObject,
-        dataset: SoftmaxDataset,
-        existing_graph_edges: List[Tuple],
-        output_directory: str,
-        learning_rate_scheduler: Optional[LearningRateSchedule] = None,
-    ):
-        super(SoftmaxModelEvaluator, self).__init__(
-            model=model,
-            loss_object=loss_object,
-            dataset=dataset,
-            output_directory=output_directory,
-            learning_rate_scheduler=learning_rate_scheduler,
-        )
-        self.existing_edges_filter = ExistingEdgesFilter(dataset.entities_count, existing_graph_edges)
+    def __init__(self, **kwargs):
+        super(SoftmaxModelEvaluator, self).__init__(**kwargs)
+        existing_graph_edges = datasets.get_existing_graph_edges(self.dataset.data_directory)
+        self.existing_edges_filter = ExistingEdgesFilter(self.dataset.entities_count, existing_graph_edges)
 
     def _compute_metrics_on_samples(self, batched_samples):
         head_metrics = EvaluationMetrics()
@@ -230,9 +200,9 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         samples = next(self.iterator_of_samples)
         with self.summary_writer.as_default():
             metrics = self._compute_and_report_metrics(samples, step)
-            loss_value = self._compute_and_report_losses(samples, step)
+            self._compute_and_report_losses(samples, step)
             self._maybe_report_learning_rate(step)
-        return _extract_lower_is_better_metrics(metrics["metrics_averaged"]) + (loss_value, )
+        return metrics["metrics_averaged"].result()[1]
 
     def log_metrics(self, logger):
         test_samples_count = 2 * len(self.dataset.graph_edges)

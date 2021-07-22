@@ -35,8 +35,8 @@ class TestModelEvaluators(tf.test.TestCase):
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=5,
         )
         model_evaluator = SamplingModelEvaluator(
-            model=transe_model, loss_object=loss_object, dataset=dataset, existing_graph_edges=dataset.graph_edges,
-            output_directory="logs", learning_rate_scheduler=learning_rate_scheduler
+            model=transe_model, loss_object=loss_object, dataset=dataset, output_directory="logs",
+            learning_rate_scheduler=learning_rate_scheduler
         )
         model_evaluator.evaluation_step(step=0)
         model_evaluator.evaluation_step(step=1)
@@ -61,8 +61,8 @@ class TestModelEvaluators(tf.test.TestCase):
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=5
         )
         model_evaluator = SoftmaxModelEvaluator(
-            model=model, loss_object=loss_object, dataset=dataset, existing_graph_edges=dataset.graph_edges,
-            output_directory="logs", learning_rate_scheduler=learning_rate_scheduler
+            model=model, loss_object=loss_object, dataset=dataset, output_directory="logs",
+            learning_rate_scheduler=learning_rate_scheduler
         )
         model_evaluator.evaluation_step(step=0)
         model_evaluator.evaluation_step(step=1)
