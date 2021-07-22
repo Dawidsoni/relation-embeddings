@@ -237,7 +237,7 @@ class TestDatasets(tf.test.TestCase):
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
         self.assertAllEqual(np.array([[2, 0, 0], [2, 0, 0]], dtype=np.int32), batch1["edge_ids"])
         self.assertAllEqual(
-            np.array([[2, 0, 0, 1, 2], [2, 0, 0, 1, 2]], dtype=np.int32), batch1["object_ids"]
+            np.array([[0, 0, 0, 1, 2], [2, 0, 0, 1, 2]], dtype=np.int32), batch1["object_ids"]
         )
         self.assertAllEqual(
             np.array([[2, 1, 0, 2, 2], [0, 1, 2, 2, 2]], dtype=np.int32), batch1["object_types"],
@@ -251,7 +251,7 @@ class TestDatasets(tf.test.TestCase):
         self.assertAllEqual(np.array([2, 0], dtype=np.int32), batch1["output_index"])
         self.assertAllEqual(np.array([[0, 1, 2], [0, 1, 2]], dtype=np.int32), batch2["edge_ids"])
         self.assertAllEqual(
-            np.array([[0, 1, 2, 1, 1], [0, 1, 2, 1, 0]], dtype=np.int32), batch2["object_ids"]
+            np.array([[0, 1, 2, 1, 1], [0, 1, 0, 1, 0]], dtype=np.int32), batch2["object_ids"]
         )
         self.assertAllEqual(
             np.array([[2, 1, 0, 0, 1], [0, 1, 2, 0, 1]], dtype=np.int32), batch2["object_types"]
