@@ -1,28 +1,9 @@
-import argparse
-import logging
 import os
 import time
-import tensorflow as tf
 import gin.tf
-import numpy as np
-import collections
-from dataclasses import dataclass
 
 import knowledge_base_state_factory
-
-
-DEFAULT_LOGGER_NAME = "default_logger"
-
-
-@gin.configurable
-@dataclass
-class ExperimentConfig(object):
-    experiment_name: str = gin.REQUIRED
-    training_steps: int = gin.REQUIRED
-    steps_per_evaluation: int = gin.REQUIRED
-    tensorboard_outputs_folder: str = gin.REQUIRED
-    model_save_folder: str = gin.REQUIRED
-    logs_output_folder: str = gin.REQUIRED
+import utils
 
 
 class TrainingStopper(object):
@@ -44,33 +25,6 @@ class TrainingStopper(object):
 
     def last_value_optimal(self):
         return self.iterations_since_best_value == 0
-
-
-def parse_training_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--gin_configs', type=str, required=True, nargs='+')
-    parser.add_argument('--gin_bindings', type=str, default=[], nargs='+')
-    return parser.parse_args()
-
-
-def init_gin_configurables():
-    gin.external_configurable(tf.reduce_max, module='tf')
-    gin.external_configurable(tf.reduce_min, module='tf')
-
-
-def init_and_get_logger(logs_location, experiment_id):
-    logger = logging.getLogger(DEFAULT_LOGGER_NAME)
-    if not os.path.exists(logs_location):
-        os.makedirs(logs_location)
-    file_handler = logging.FileHandler(os.path.join(logs_location, f"{experiment_id}.log"), mode='w')
-    formatter = logging.Formatter(fmt="%(asctime)s: %(message)s")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    stdout_handler = logging.StreamHandler()
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
-    logger.setLevel(logging.INFO)
-    return logger
 
 
 def log_experiment_information(logger, experiment_name, gin_configs, gin_bindings):
@@ -119,15 +73,15 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
 
 
 def prepare_and_train_model(gin_configs, gin_bindings):
-    init_gin_configurables()
+    utils.init_gin_configurables()
     gin.parse_config_files_and_bindings(gin_configs, gin_bindings)
-    experiment_config = ExperimentConfig()
+    experiment_config = utils.ExperimentConfig()
     experiment_id = f"{experiment_config.experiment_name}_{int(time.time())}"
-    logger = init_and_get_logger(experiment_config.logs_output_folder, experiment_id)
+    logger = utils.init_and_get_logger(experiment_config.logs_output_folder, experiment_id)
     log_experiment_information(logger, experiment_config.experiment_name, gin_configs, gin_bindings)
     train_and_evaluate_model(experiment_config, experiment_id, logger)
 
 
 if __name__ == '__main__':
-    training_args = parse_training_args()
+    training_args = utils.parse_gin_args()
     prepare_and_train_model(training_args.gin_configs, training_args.gin_bindings)
