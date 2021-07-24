@@ -384,8 +384,9 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 @gin.configurable
 class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
 
-    def __init__(self, **kwargs):
-        super(MaskedAllNeighboursDataset, self).__init__(**kwargs)
+    def __init__(self, *args, filter_repeated_samples=False, **kwargs):
+        super(MaskedAllNeighboursDataset, self).__init__(*args, **kwargs)
+        self.filter_repeated_samples = filter_repeated_samples
 
     def _produce_one_hot_outputs(self, edges, true_entity_indexes):
         one_hot_outputs = np.zeros((edges.shape[0], self.entities_count), dtype=np.float32)
@@ -411,10 +412,17 @@ class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
         updated_samples = {"one_hot_output": one_hot_outputs}
         return {key: updated_samples[key] if key in updated_samples else values for key, values in samples.items()}
 
+    def _filter_unbatched_samples(self, samples):
+        one_hot_sum = tf.math.cumsum(samples["one_hot_output"])
+        return one_hot_sum[samples["output_index"]] == 1
+
     @property
     def samples(self):
         edge_samples = super(MaskedAllNeighboursDataset, self).samples
-        return edge_samples.map(self._map_batched_samples)
+        edge_samples = edge_samples.map(self._map_batched_samples)
+        if self.filter_repeated_samples:
+            edge_samples = edge_samples.unbatch().filter(self._filter_unbatched_samples).batch(self.batch_size)
+        return edge_samples
 
 
 @gin.configurable
@@ -495,3 +503,48 @@ class MaskedEntityWithNeighboursDataset(MaskedEntityOfEdgeDataset):
         edge_samples = super(MaskedEntityWithNeighboursDataset, self).samples
         return edge_samples.map(self._map_batched_samples)
 
+
+@gin.configurable
+class ReversedEdgeDecoratorDataset(SoftmaxDataset):
+
+    def __init__(self, decorated_dataset):
+        super(ReversedEdgeDecoratorDataset, self).__init__(
+            dataset_type=decorated_dataset.dataset_type,
+            data_directory=decorated_dataset.data_directory,
+            batch_size=decorated_dataset.batch_size,
+            shuffle_dataset=decorated_dataset.shuffle_dataset,
+            prefetched_samples=decorated_dataset.prefetched_samples,
+        )
+        self.decorated_dataset = decorated_dataset
+        self.relations_count *= 2
+
+    def _produce_object_ids_with_types(self, old_object_ids, old_object_types, mask_indexes):
+        object_ids = old_object_ids.numpy()
+        object_types = old_object_types.numpy()
+        for index, mask_index in enumerate(mask_indexes):
+            if mask_index not in [0, 2]:
+                raise ValueError(f"Expected mask index to be contained in the set {{0, 2}}, got: {mask_index}")
+            if mask_index == 2:
+                continue
+            object_ids[index, 0], object_ids[index, 2] = object_ids[index, 2], object_ids[index, 0]
+            object_ids[index, 1] += (self.relations_count / 2)
+            object_types[index, 0], object_types[index, 2] = object_types[index, 2], object_types[index, 0]
+        return object_ids, object_types
+
+    def _map_batched_samples(self, samples):
+        object_ids, object_types = tf.py_function(
+            self._produce_object_ids_with_types,
+            inp=[samples["object_ids"], samples["object_types"], samples["mask_index"]],
+            Tout=(tf.int32, tf.int32),
+        )
+        updated_samples = {
+            "object_ids": object_ids,
+            "object_types": object_types,
+            "mask_index": 2 * tf.ones_like(samples["mask_index"], dtype=tf.int32),
+            "true_entity_index": tf.zeros_like(samples["true_entity_index"], dtype=tf.int32),
+        }
+        return {key: updated_samples[key] if key in updated_samples else values for key, values in samples.items()}
+
+    @property
+    def samples(self):
+        return self.decorated_dataset.samples.map(self._map_batched_samples)
