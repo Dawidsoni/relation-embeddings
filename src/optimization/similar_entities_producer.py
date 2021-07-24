@@ -44,7 +44,7 @@ def _get_index_matching_row_index_or_last_index(values, row_index):
 
 @gin.configurable
 class SimilarEntitiesProducer(object):
-    MAX_SIMILAR_ENTITIES_COUNT = 50
+    MAX_SIMILAR_ENTITIES_COUNT = 100
 
     def __init__(self, config: SimilarEntitiesProducerConfig):
         self.config = config
