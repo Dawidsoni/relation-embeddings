@@ -5,7 +5,6 @@ from enum import Enum
 import functools
 
 from models.transformer_softmax_model import TransformerSoftmaxModel
-from optimization import datasets
 
 import numpy as np
 import gin.tf
@@ -19,7 +18,7 @@ from models.transe_model import TranseModel
 from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
-    MaskedEntityOfEdgeDataset
+    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset
 from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
     CrossEntropyLossObject
@@ -56,6 +55,7 @@ class ModelType(Enum):
     TRANSFORMER_BINARY = 5
     CONVE = 6
     TRANSFORMER_SOFTMAX = 7
+    TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS = 8
 
 
 def _create_loss_object(loss_type: LossType):
@@ -79,6 +79,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSFORMER_BINARY: lambda: TransformerBinaryModel(embeddings_config),
         ModelType.CONVE: lambda: ConvEModel(embeddings_config),
         ModelType.TRANSFORMER_SOFTMAX: lambda: TransformerSoftmaxModel(embeddings_config),
+        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: TransformerSoftmaxModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -95,33 +96,22 @@ def _create_dataset(
     sample_weights_loss_object=None,
 ):
     sampling_edge_dataset_initializer = functools.partial(
-        SamplingEdgeDataset,
-        dataset_type=dataset_type,
-        data_directory=gin.REQUIRED,
-        batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset,
-        sample_weights_model=sample_weights_model,
-        sample_weights_loss_object=sample_weights_loss_object,
-        prefetched_samples=prefetched_samples,
+        SamplingEdgeDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset, sample_weights_model=sample_weights_model,
+        sample_weights_loss_object=sample_weights_loss_object, prefetched_samples=prefetched_samples,
     )
     sampling_neighbours_dataset_initializer = functools.partial(
-        SamplingNeighboursDataset,
-        dataset_type=dataset_type,
-        data_directory=gin.REQUIRED,
-        batch_size=batch_size,
-        neighbours_per_sample=gin.REQUIRED,
-        shuffle_dataset=shuffle_dataset,
-        sample_weights_model=sample_weights_model,
-        sample_weights_loss_object=sample_weights_loss_object,
-        prefetched_samples=prefetched_samples,
+        SamplingNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
+        neighbours_per_sample=gin.REQUIRED, shuffle_dataset=shuffle_dataset, sample_weights_model=sample_weights_model,
+        sample_weights_loss_object=sample_weights_loss_object, prefetched_samples=prefetched_samples,
     )
     masked_entity_of_edge_dataset_initializer = functools.partial(
-        MaskedEntityOfEdgeDataset,
-        dataset_type=dataset_type,
-        data_directory=gin.REQUIRED,
-        batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset,
-        prefetched_samples=prefetched_samples,
+        MaskedEntityOfEdgeDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
+    )
+    masked_all_neighbours_dataset_initializer = functools.partial(
+        MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
     )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
@@ -131,6 +121,7 @@ def _create_dataset(
         ModelType.TRANSFORMER_BINARY: lambda: sampling_neighbours_dataset_initializer(),
         ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: masked_entity_of_edge_dataset_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: masked_all_neighbours_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -158,6 +149,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.TRANSFORMER_BINARY: lambda: sampling_trainer_initializer(),
         ModelType.CONVE: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_trainer_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -195,6 +187,7 @@ def _create_model_evaluator(
         ModelType.TRANSFORMER_BINARY: lambda: sampling_evaluator_initializer(),
         ModelType.CONVE: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_evaluator_initializer(),
+        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -223,8 +216,8 @@ def _create_embeddings_config(
         np.load(special_token_embeddings_path) if special_token_embeddings_path is not None else None
     )
     return EmbeddingsConfig(
-        entities_count=(max(dataset.ids_of_entities) + 1),
-        relations_count=(max(dataset.ids_of_relations) + 1),
+        entities_count=dataset.entities_count,
+        relations_count=dataset.relations_count,
         pretrained_entity_embeddings=pretrained_entity_embeddings,
         pretrained_relation_embeddings=pretrained_relation_embeddings,
         pretrained_position_embeddings=pretrained_position_embeddings,
