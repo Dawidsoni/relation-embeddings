@@ -1,11 +1,14 @@
 import numpy as np
+import gin.tf
 
 
+@gin.configurable(whitelist=["use_entities_order"])
 class EdgesProducer(object):
 
-    def __init__(self, ids_of_entities, graph_edges):
+    def __init__(self, ids_of_entities, graph_edges, use_entities_order=False):
         self.ids_of_entities = ids_of_entities
         self.set_of_graph_edges = set(graph_edges)
+        self.use_entities_order = use_entities_order
 
     def _produce_edges(self, sample, swap_index):
         candidates_object_ids = np.tile(sample["object_ids"], (len(self.ids_of_entities), 1))
@@ -17,7 +20,7 @@ class EdgesProducer(object):
         ]
         filtered_edges_object_ids = np.delete(candidates_object_ids, existing_edges_indexes, axis=0)
         pattern_index = np.where((sample["object_ids"] == filtered_edges_object_ids).all(axis=1))[0][0]
-        target_index = np.random.randint(len(filtered_edges_object_ids))
+        target_index = pattern_index if self.use_entities_order else np.random.randint(len(filtered_edges_object_ids))
         swap_indexes = [pattern_index, target_index]
         filtered_edges_object_ids[swap_indexes] = filtered_edges_object_ids[swap_indexes[::-1]]
         produced_edges = {"object_ids": filtered_edges_object_ids}

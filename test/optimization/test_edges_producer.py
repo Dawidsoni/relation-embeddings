@@ -83,6 +83,26 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertAllEqual([5, 5], edges["position"])
         self.assertEqual(0, target_index)
 
+    def test_use_entities_order_two_output_edges(self):
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=True)
+        head_edges, target_index = edges_producer.produce_head_edges(
+            sample={"object_ids": np.array([1, 0, 1]), "object_types": np.array([1, 0, 2])}
+        )
+        self.assertAllEqual([[1, 0, 1], [2, 0, 1]], head_edges["object_ids"])
+        self.assertAllEqual([[1, 0, 2], [1, 0, 2]], head_edges["object_types"])
+        self.assertEqual(0, target_index)
+
+    def test_use_entities_order_three_output_edges(self):
+        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=True)
+        head_edges, target_index = edges_producer.produce_head_edges(
+            sample={"object_ids": np.array([1, 1, 1]), "object_types": np.array([1, 0, 2])}
+        )
+        self.assertAllEqual([[0, 1, 1], [1, 1, 1], [2, 1, 1]], head_edges["object_ids"])
+        self.assertAllEqual([[1, 0, 2], [1, 0, 2], [1, 0, 2]], head_edges["object_types"])
+        self.assertEqual(1, target_index)
+
 
 if __name__ == '__main__':
     tf.test.main()
