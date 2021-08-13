@@ -5,7 +5,7 @@ import gin.tf
 @gin.configurable(whitelist=["use_entities_order"])
 class EdgesProducer(object):
 
-    def __init__(self, ids_of_entities, graph_edges, use_entities_order=False):
+    def __init__(self, ids_of_entities, graph_edges, use_entities_order=True):
         self.ids_of_entities = ids_of_entities
         self.set_of_graph_edges = set(graph_edges)
         self.use_entities_order = use_entities_order

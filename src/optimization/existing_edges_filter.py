@@ -5,7 +5,7 @@ import gin.tf
 @gin.configurable(whitelist=["use_entities_order"])
 class ExistingEdgesFilter(object):
 
-    def __init__(self, entities_count, graph_edges, use_entities_order=False):
+    def __init__(self, entities_count, graph_edges, use_entities_order=True):
         self.entities_count = entities_count
         self.set_of_graph_edges = set(graph_edges)
         self.use_entities_order = use_entities_order
