@@ -8,12 +8,12 @@ MaskedEntityOfEdgeDataset.batch_size = 512
 
 create_knowledge_base_state.loss_type = %LossType.CROSS_ENTROPY
 LossObject.regularization_strength = 0.0
-CrossEntropyLossObject.label_smoothing = 0.0
+CrossEntropyLossObject.label_smoothing = 0.85
 
 
 # Embeddings configuration
 
-EmbeddingsConfig.embeddings_dimension = 512
+EmbeddingsConfig.embeddings_dimension = 256
 EmbeddingsConfig.trainable_embeddings = True
 EmbeddingsConfig.use_position_embeddings = True
 EmbeddingsConfig.position_embeddings_max_inputs_length = 3
@@ -32,12 +32,12 @@ StackedTransformerEncodersLayer.layers_count = 12
 StackedTransformerEncodersLayer.attention_heads_count = 4
 StackedTransformerEncodersLayer.attention_head_dimension = 256
 StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 512
-StackedTransformerEncodersLayer.dropout_rate = 0.5
+StackedTransformerEncodersLayer.dropout_rate = 0.1
 StackedTransformerEncodersLayer.share_encoder_parameters = False
 StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
 
 TransformerSoftmaxModelConfig.use_pre_normalization = True
-TransformerSoftmaxModelConfig.pre_dropout_rate = 0.5
+TransformerSoftmaxModelConfig.pre_dropout_rate = 0.1
 TransformerSoftmaxModelConfig.use_sigmoid_as_output_layer = False
 
 TransformerSoftmaxModel.model_config = @TransformerSoftmaxModelConfig()
@@ -47,16 +47,17 @@ create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_SOFTMAX
 # Creating a learning rate schedule
 
 PiecewiseLinearDecayScheduler.initial_learning_rate = 5e-4
-PiecewiseLinearDecayScheduler.decay_steps = 80_000
-PiecewiseLinearDecayScheduler.decay_rate = 1.0
-PiecewiseLinearDecayScheduler.warmup_steps = 16_000
+PiecewiseLinearDecayScheduler.decay_steps = 40_000
+PiecewiseLinearDecayScheduler.decay_rate = 0.5
+PiecewiseLinearDecayScheduler.warmup_steps = 8_000
 
 
 # Training model
 
 ExperimentConfig.experiment_name = "transformer_softmax_wn18rr_baseline"
-ExperimentConfig.training_steps = 160_000
+ExperimentConfig.training_steps = 80_000
 ExperimentConfig.steps_per_evaluation = 4000
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
+mrr_too_low.threshold = 0.4

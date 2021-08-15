@@ -1,0 +1,34 @@
+{
+    "parameter_configs": [
+        {
+            "parameter_name": "CrossEntropyLossObject.label_smoothing",
+            "parameter_values": [0.75, 0.8, 0.85, 0.9]
+        },
+        {
+            "parameter_name": "create_optimizer.weight_decay",
+            "parameter_values": [0.003, 0.01, 0.03]
+        },
+        {
+            "parameter_name": "StackedTransformerEncodersLayer.dropout_rate",
+            "parameter_values": [0.1, 0.2, 0.3]
+        },
+        {
+            "parameter_name": "StackedTransformerEncodersLayer.share_encoder_parameters",
+            "parameter_values": [false, true]
+        },
+        {
+            "parameter_name": "TransformerSoftmaxModelConfig.pre_dropout_rate",
+            "parameter_values": [0.1, 0.2, 0.3]
+        },
+        {
+            "parameter_name": "TransformerSoftmaxModelConfig.use_sigmoid_as_output_layer",
+            "parameter_values": [false, true]
+        },
+        {
+            "parameter_name": "PiecewiseLinearDecayScheduler.decay_rate",
+            "parameter_values": [0.25, 0.5, 0.75]
+        }
+    ],
+    "banned_parameter_configs": [
+    ]
+}

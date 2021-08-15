@@ -6,6 +6,7 @@ import tensorflow as tf
 from layers.embeddings_layers import EmbeddingsConfig
 from layers.transformer_layers import StackedTransformerEncodersLayer
 from models.knowledge_completion_model import KnowledgeCompletionModel
+from optimization import parameters_factory
 
 
 @gin.configurable
@@ -26,10 +27,15 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         self.pre_dropout_layer = tf.keras.layers.Dropout(rate=self.model_config.pre_dropout_rate)
         self.transformer_layer = StackedTransformerEncodersLayer()
         self.post_hidden_layer = tf.keras.layers.Dense(
-            units=self.embeddings_layer.config.embeddings_dimension, activation=tf.nn.relu,
+            units=self.embeddings_layer.config.embeddings_dimension,
+            activation=parameters_factory.get_activation(),
+            kernel_initializer=parameters_factory.get_parameters_initializer(),
         )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.post_projection_layer = tf.keras.layers.Dense(units=self.embeddings_layer.config.entities_count)
+        self.post_projection_layer = tf.keras.layers.Dense(
+            units=self.embeddings_layer.config.entities_count,
+            kernel_initializer=parameters_factory.get_embeddings_initializer(),
+        )
 
     def call(self, inputs, training=None, **kwargs):
         outputs = self.embeddings_layer(inputs, training=training)

@@ -5,6 +5,8 @@ import numpy as np
 import tensorflow as tf
 import gin.tf
 
+from optimization import parameters_factory
+
 
 @gin.configurable
 @dataclass
@@ -63,7 +65,7 @@ class PositionEmbeddingsLayer(tf.keras.layers.Layer):
             return self.initial_values
         elif self.use_fourier_series:
             return self._get_fourier_positional_embeddings(embeddings_dimension)
-        return tf.random.truncated_normal(shape=(self.max_inputs_length, embeddings_dimension))
+        return parameters_factory.get_embeddings_initializer()(shape=(self.max_inputs_length, embeddings_dimension))
 
     def build(self, input_shape):
         initial_embeddings = self._get_initial_embeddings(
@@ -103,7 +105,7 @@ class EmbeddingsExtractionLayer(tf.keras.layers.Layer):
     @staticmethod
     def _get_initial_embedding_values(shape, pretrained_embeddings=None):
         if pretrained_embeddings is None:
-            return tf.random.truncated_normal(shape=shape)
+            return parameters_factory.get_embeddings_initializer()(shape=shape)
         return pretrained_embeddings
 
     def _create_entity_embeddings_variable(self):

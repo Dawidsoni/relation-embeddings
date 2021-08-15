@@ -8,7 +8,7 @@ import utils
 
 class TrainingStopper(object):
 
-    def __init__(self, iterations_to_stop=10):
+    def __init__(self, iterations_to_stop=5):
         self.iterations_to_stop = iterations_to_stop
         self.best_value = float("-inf")
         self.iterations_since_best_value = -1
@@ -38,6 +38,11 @@ def log_experiment_information(logger, experiment_name, gin_configs, gin_binding
         logger.info(f"Using Gin binding: {gin_binding}")
 
 
+@gin.configurable(whitelist=['threshold'])
+def mrr_too_low(mrr, threshold=0.0):
+    return mrr < threshold
+
+
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
@@ -55,7 +60,8 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
             logger.info(f"Evaluating a model on validation data")
             evaluation_mrr_metric = state.validation_evaluator.evaluation_step(training_step)
             training_stopper.add_metric_value(evaluation_mrr_metric)
-            if training_stopper.should_training_stop():
+            if training_stopper.should_training_stop() or (
+                    training_step >= 4 * experiment_config.steps_per_evaluation and mrr_too_low(evaluation_mrr_metric)):
                 logger.info(f"Finishing experiment due to high value of evaluation losses: {evaluation_mrr_metric}")
                 break
             elif training_stopper.last_value_optimal():

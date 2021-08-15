@@ -3,6 +3,8 @@ import functools
 import tensorflow as tf
 import gin.tf
 
+from optimization import parameters_factory
+
 
 class SelfAttentionLayer(tf.keras.layers.Layer):
 
@@ -12,6 +14,7 @@ class SelfAttentionLayer(tf.keras.layers.Layer):
             num_heads=heads_count,
             key_dim=attention_head_dimension // heads_count,
             dropout=dropout_rate,
+            kernel_initializer=parameters_factory.get_parameters_initializer(),
         )
 
     def call(self, inputs, mask=None, training=None):
@@ -28,9 +31,12 @@ class PointwiseFeedforwardLayer(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         self.dense_layer1 = tf.keras.layers.Dense(
-            self.hidden_layer_dimension, activation="relu"
+            self.hidden_layer_dimension, activation=parameters_factory.get_activation(),
+            kernel_initializer=parameters_factory.get_parameters_initializer(),
         )
-        self.dense_layer2 = tf.keras.layers.Dense(units=input_shape[-1])
+        self.dense_layer2 = tf.keras.layers.Dense(
+            units=input_shape[-1], kernel_initializer=parameters_factory.get_parameters_initializer(),
+        )
 
     def call(self, inputs, training=None):
         outputs = self.dense_layer1(inputs, training=training)

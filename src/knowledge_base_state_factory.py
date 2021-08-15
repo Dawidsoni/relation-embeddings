@@ -18,7 +18,7 @@ from models.transe_model import TranseModel
 from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
-    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset
+    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset, ReversedEdgeDecoratorDataset
 from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
     CrossEntropyLossObject
@@ -56,6 +56,7 @@ class ModelType(Enum):
     CONVE = 6
     TRANSFORMER_SOFTMAX = 7
     TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS = 8
+    TRANSFORMER_REVERSED_EDGE = 9
 
 
 def _create_loss_object(loss_type: LossType):
@@ -80,6 +81,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.CONVE: lambda: ConvEModel(embeddings_config),
         ModelType.TRANSFORMER_SOFTMAX: lambda: TransformerSoftmaxModel(embeddings_config),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: TransformerSoftmaxModel(embeddings_config),
+        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: TransformerSoftmaxModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -113,6 +115,10 @@ def _create_dataset(
         MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
         shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
     )
+    masked_all_neighbours_dataset_initializer = functools.partial(
+        MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
+    )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
@@ -122,6 +128,8 @@ def _create_dataset(
         ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: masked_entity_of_edge_dataset_initializer(),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: masked_all_neighbours_dataset_initializer(),
+        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: ReversedEdgeDecoratorDataset(
+            masked_entity_of_edge_dataset_initializer()),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -150,6 +158,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.CONVE: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_trainer_initializer(),
+        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -188,6 +197,7 @@ def _create_model_evaluator(
         ModelType.CONVE: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_evaluator_initializer(),
+        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -255,7 +265,7 @@ def create_knowledge_base_state(
         model_type=model_type,
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
-        prefetched_samples=10,
+        prefetched_samples=1,
     )
     init_eval = functools.partial(
         _create_model_evaluator,

@@ -4,7 +4,7 @@ import gin.tf
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
-
+from optimization import parameters_factory
 
 LearningRateSchedule = tf.keras.optimizers.schedules.LearningRateSchedule
 
@@ -28,7 +28,7 @@ class SamplingModelTrainer(ModelTrainer):
     ):
         self.model = model
         self.loss_object = loss_object
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate_schedule)
+        self.optimizer = parameters_factory.create_optimizer(learning_rate_schedule)
         self.negatives_reducer = negatives_reducer
 
     def train_step(self, training_samples: tf.Tensor, training_step: int):
@@ -57,7 +57,7 @@ class SoftmaxModelTrainer(ModelTrainer):
     ):
         self.model = model
         self.loss_object = loss_object
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate_schedule)
+        self.optimizer = parameters_factory.create_optimizer(learning_rate_schedule)
 
     def train_step(self, training_samples: tf.Tensor, training_step: int):
         with tf.GradientTape() as gradient_tape:
