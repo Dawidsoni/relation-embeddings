@@ -32,9 +32,9 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
             kernel_initializer=parameters_factory.get_parameters_initializer(),
         )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.post_projection_layer = tf.keras.layers.Dense(
-            units=self.embeddings_layer.config.entities_count,
-            kernel_initializer=parameters_factory.get_embeddings_initializer(),
+        self.projection_bias = tf.Variable(
+            initial_value=tf.zeros_initializer()(shape=(self.embeddings_layer.config.entities_count, )),
+            trainable=True,
         )
 
     def call(self, inputs, training=None, **kwargs):
@@ -46,7 +46,8 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         outputs = tf.gather(outputs, indices=inputs["mask_index"], axis=1, batch_dims=1)
         outputs = self.post_hidden_layer(outputs, training=training)
         outputs = self.post_normalization_layer(outputs, training=training)
-        outputs = self.post_projection_layer(outputs, training=training)
+        outputs = tf.linalg.matmul(outputs, self.embeddings_layer.entity_embeddings, transpose_b=True)
+        outputs += self.projection_bias
         if self.model_config.use_sigmoid_as_output_layer:
             return tf.nn.sigmoid(outputs)
         return tf.nn.softmax(outputs)

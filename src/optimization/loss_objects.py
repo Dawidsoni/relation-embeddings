@@ -112,4 +112,6 @@ class CrossEntropyLossObject(SupervisedLossObject):
         return self.loss_function(y_true=true_labels, y_pred=predictions)
 
     def get_mean_loss_of_samples(self, true_labels, predictions):
-        return tf.reduce_mean(self.get_losses_of_samples(true_labels, predictions), axis=0)
+        return tf.reduce_mean(self.get_losses_of_samples(
+            tf.one_hot(true_labels, depth=tf.shape(predictions)[1]), predictions
+        ), axis=0)

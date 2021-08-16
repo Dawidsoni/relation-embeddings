@@ -55,16 +55,18 @@ def extract_edges_from_file(entity_ids, relation_ids, data_directory, dataset_ty
     ))
 
 
-def _get_one_hot_encoded_vector(length, one_hot_ids):
-    vector = np.zeros(length)
-    vector[one_hot_ids] = 1.0
-    return vector
-
-
 def _get_int_random_variables_iterator(low, high, batch_size=100_000):
     while True:
         for random_variable in np.random.randint(low, high, size=batch_size):
             yield random_variable
+
+
+def _map_list_of_dicts_to_dict(list_of_dicts):
+    output_dict = collections.defaultdict(list)
+    for item_dict in list_of_dicts:
+        for key, value in item_dict.items():
+            output_dict[key].append(value)
+    return output_dict
 
 
 def _interleave_datasets(dataset1, dataset2):
@@ -347,7 +349,6 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
             "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
             "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
             "true_entity_index": tf.TensorSpec(shape=(), dtype=tf.int32),
-            "one_hot_output": tf.TensorSpec(shape=(self.entities_count, ), dtype=tf.float32),
             "output_index": tf.TensorSpec(shape=(), dtype=tf.int32),
         }
 
@@ -365,19 +366,17 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
                 "object_types": object_types,
                 "mask_index": mask_index,
                 "true_entity_index": 0 if mask_index == 2 else 2,
-                "one_hot_output": _get_one_hot_encoded_vector(length=self.entities_count, one_hot_ids=[output_index]),
                 "output_index": output_index,
             }
 
     @property
     def samples(self):
-        sample_specification = self._get_sample_specification()
-        head_samples = tf.data.Dataset.from_generator(
-            lambda: self._generate_samples(mask_index=0), output_signature=sample_specification,
-        )
-        tail_samples = tf.data.Dataset.from_generator(
-            lambda: self._generate_samples(mask_index=2), output_signature=sample_specification,
-        )
+        head_samples = tf.data.Dataset.from_tensor_slices(dict(_map_list_of_dicts_to_dict(
+            list(self._generate_samples(mask_index=0))
+        )))
+        tail_samples = tf.data.Dataset.from_tensor_slices(dict(_map_list_of_dicts_to_dict(
+            list(self._generate_samples(mask_index=2))
+        )))
         return self._get_processed_dataset(_interleave_datasets(head_samples, tail_samples))
 
 
@@ -388,41 +387,9 @@ class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
         super(MaskedAllNeighboursDataset, self).__init__(*args, **kwargs)
         self.filter_repeated_samples = filter_repeated_samples
 
-    def _produce_one_hot_outputs(self, edges, true_entity_indexes):
-        one_hot_outputs = np.zeros((edges.shape[0], self.entities_count), dtype=np.float32)
-        for sample_index, (edge, true_entity_index) in enumerate(zip(edges.numpy(), true_entity_indexes.numpy())):
-            entity_id, relation_id = edge[true_entity_index], edge[1]
-            if true_entity_index == 0:
-                neighbours = self.entity_output_edges[entity_id] + self.known_entity_output_edges[entity_id]
-            elif true_entity_index == 2:
-                neighbours = self.entity_input_edges[entity_id] + self.known_entity_input_edges[entity_id]
-            else:
-                raise ValueError(f"Invalid true_entity_index: {true_entity_index}")
-            for neighbour_entity_id, neighbour_relation_id in neighbours:
-                if neighbour_relation_id == relation_id:
-                    one_hot_outputs[sample_index, neighbour_entity_id] = 1.0
-        return one_hot_outputs
-
-    def _map_batched_samples(self, samples):
-        one_hot_outputs = tf.py_function(
-            self._produce_one_hot_outputs,
-            inp=[samples["edge_ids"], samples["true_entity_index"]],
-            Tout=tf.float32,
-        )
-        updated_samples = {"one_hot_output": one_hot_outputs}
-        return {key: updated_samples[key] if key in updated_samples else values for key, values in samples.items()}
-
-    def _filter_unbatched_samples(self, samples):
-        one_hot_sum = tf.math.cumsum(samples["one_hot_output"])
-        return one_hot_sum[samples["output_index"]] == 1
-
     @property
     def samples(self):
-        edge_samples = super(MaskedAllNeighboursDataset, self).samples
-        edge_samples = edge_samples.map(self._map_batched_samples)
-        if self.filter_repeated_samples:
-            edge_samples = edge_samples.unbatch().filter(self._filter_unbatched_samples).batch(self.batch_size)
-        return edge_samples
+        return super(MaskedAllNeighboursDataset, self).samples
 
 
 @gin.configurable

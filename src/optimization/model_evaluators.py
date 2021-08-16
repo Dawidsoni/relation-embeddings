@@ -186,7 +186,7 @@ class SoftmaxModelEvaluator(ModelEvaluator):
     def _compute_and_report_losses(self, samples, step):
         predictions = self.model(samples, training=False)
         loss_value = self.loss_object.get_mean_loss_of_samples(
-            true_labels=samples["one_hot_output"], predictions=predictions
+            true_labels=samples["output_index"], predictions=predictions
         )
         tf.summary.scalar(name="losses/samples_loss", data=loss_value, step=step)
         regularization_loss = self.loss_object.get_regularization_loss(self.model)

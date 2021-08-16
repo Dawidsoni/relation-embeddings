@@ -38,14 +38,14 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
         model = TransformerSoftmaxModel(self.embeddings_config, self.default_model_config)
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 3), outputs.shape)
-        self.assertEqual(747, model.count_params())
+        self.assertEqual(729, model.count_params())
 
     def test_pre_normalization_disabled(self):
         model_config = dataclasses.replace(self.default_model_config, use_pre_normalization=False)
         model = TransformerSoftmaxModel(self.embeddings_config, model_config)
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 3), outputs.shape)
-        self.assertEqual(735, model.count_params())
+        self.assertEqual(717, model.count_params())
 
     def test_softmax_outputs(self):
         model = TransformerSoftmaxModel(self.embeddings_config, self.default_model_config)

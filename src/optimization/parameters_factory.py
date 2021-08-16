@@ -20,5 +20,5 @@ def get_activation():
 
 @gin.configurable(whitelist=["weight_decay"])
 def create_optimizer(learning_rate_schedule, weight_decay=0.01):
-    return tf.optimizers.Adam(learning_rate_schedule)
-    # return tfa.optimizers.AdamW(weight_decay, learning_rate_schedule)
+    # return tf.optimizers.Adam(learning_rate_schedule)
+    return tfa.optimizers.AdamW(weight_decay, learning_rate_schedule)
