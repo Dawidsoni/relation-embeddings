@@ -68,7 +68,7 @@ class TestModelEvaluators(tf.test.TestCase):
         model_evaluator.evaluation_step(step=1)
         model_evaluator.log_metrics(logger=mock.MagicMock())
         file_writer_mock.assert_called_once()
-        self.assertEqual(24, summary_scalar_patch.call_count)
+        self.assertEqual(42, summary_scalar_patch.call_count)
 
 
 if __name__ == '__main__':

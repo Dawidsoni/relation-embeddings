@@ -105,13 +105,11 @@ class CrossEntropyLossObject(SupervisedLossObject):
     def __init__(self, label_smoothing=gin.REQUIRED):
         super(CrossEntropyLossObject, self).__init__()
         self.loss_function = tf.keras.losses.CategoricalCrossentropy(
-            from_logits=False, reduction=tf.losses.Reduction.NONE, label_smoothing=label_smoothing
+            from_logits=True, reduction=tf.losses.Reduction.NONE, label_smoothing=label_smoothing
         )
 
     def get_losses_of_samples(self, true_labels, predictions):
-        return self.loss_function(y_true=true_labels, y_pred=predictions)
+        return self.loss_function(y_true=tf.one_hot(true_labels, depth=tf.shape(predictions)[1]), y_pred=predictions)
 
     def get_mean_loss_of_samples(self, true_labels, predictions):
-        return tf.reduce_mean(self.get_losses_of_samples(
-            tf.one_hot(true_labels, depth=tf.shape(predictions)[1]), predictions
-        ), axis=0)
+        return tf.reduce_mean(self.get_losses_of_samples(true_labels, predictions), axis=0)

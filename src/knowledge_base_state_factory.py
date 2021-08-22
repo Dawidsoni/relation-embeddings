@@ -115,10 +115,6 @@ def _create_dataset(
         MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
         shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
     )
-    masked_all_neighbours_dataset_initializer = functools.partial(
-        MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
-    )
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
@@ -184,7 +180,7 @@ def _create_model_evaluator(
         SoftmaxModelEvaluator,
         model=model,
         loss_object=loss_object,
-        dataset=dataset_initializer(batch_size=500),
+        dataset=dataset_initializer(batch_size=512),
         output_directory=outputs_folder,
         learning_rate_scheduler=learning_rate_scheduler,
     )

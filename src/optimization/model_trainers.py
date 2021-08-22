@@ -63,7 +63,7 @@ class SoftmaxModelTrainer(ModelTrainer):
         with tf.GradientTape() as gradient_tape:
             predictions = self.model(training_samples, training=True)
             loss_value = self.loss_object.get_mean_loss_of_samples(
-                true_labels=training_samples["output_index"], predictions=predictions
+                true_labels=training_samples["expected_output"], predictions=predictions
             )
         trainable_variables = self.model.get_trainable_variables_at_training_step(training_step)
         gradients = gradient_tape.gradient(loss_value, trainable_variables)

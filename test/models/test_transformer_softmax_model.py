@@ -34,6 +34,34 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
             use_pre_normalization=True, pre_dropout_rate=0.5, use_sigmoid_as_output_layer=False,
         )
 
+    def test_xxx(self):
+        gin.clear_config()
+        gin.parse_config("""
+            StackedTransformerEncodersLayer.layers_count = 12
+            StackedTransformerEncodersLayer.attention_heads_count = 4
+            StackedTransformerEncodersLayer.attention_head_dimension = 256
+            StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension = 512
+            StackedTransformerEncodersLayer.dropout_rate = 0.1
+            StackedTransformerEncodersLayer.share_encoder_parameters = False
+            StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
+        """)
+        dataset = MaskedEntityOfEdgeDataset(
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
+        )
+        self.model_inputs = next(iter(dataset.samples))
+        self.embeddings_config = EmbeddingsConfig(
+            entities_count=41054, relations_count=11, embeddings_dimension=256, use_special_token_embeddings=True,
+        )
+        self.default_model_config = TransformerSoftmaxModelConfig(
+            use_pre_normalization=True, pre_dropout_rate=0.1, use_sigmoid_as_output_layer=False,
+        )
+        model = TransformerSoftmaxModel(self.embeddings_config, self.default_model_config)
+        for variable in model.get_trainable_variables_at_training_step(1):
+            print(variable.name, " ", variable.shape)
+        outputs = model(self.model_inputs)
+        self.assertAllEqual((5, 41054), outputs.shape)
+        self.assertEqual(169_475_50, model.count_params())
+
     def test_model_architecture(self):
         model = TransformerSoftmaxModel(self.embeddings_config, self.default_model_config)
         outputs = model(self.model_inputs)

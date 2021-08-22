@@ -162,32 +162,42 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         existing_graph_edges = datasets.get_existing_graph_edges(self.dataset.data_directory)
         self.existing_edges_filter = ExistingEdgesFilter(self.dataset.entities_count, existing_graph_edges)
 
-    def _compute_metrics_on_samples(self, batched_samples):
-        head_metrics = EvaluationMetrics()
-        tail_metrics = EvaluationMetrics()
-        losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()
-        for sample, ranking in zip(_unbatch_samples(batched_samples), losses_ranking):
-            filtered_ranking, target_index = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
-                sample["edge_ids"], sample["mask_index"], values=ranking
-            )
-            if sample["mask_index"] == 0:
-                head_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
-            elif sample["mask_index"] == 2:
-                tail_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
-            else:
-                raise ValueError(f"Invalid `mask_index`: {sample['mask_index']}")
-        average_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
+    def _compute_metrics_on_samples(self, list_of_batched_samples):
+        raw_head_metrics, raw_tail_metrics = EvaluationMetrics(), EvaluationMetrics()
+        head_metrics, tail_metrics = EvaluationMetrics(), EvaluationMetrics()
+        for batched_samples in list_of_batched_samples:
+            losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()
+            for sample, ranking in zip(_unbatch_samples(batched_samples), losses_ranking):
+                filtered_ranking, target_index = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
+                    sample["edge_ids"], sample["mask_index"], values=ranking
+                )
+                if sample["mask_index"] == 0:
+                    raw_head_metrics.update_state(ranking, positive_sample_index=sample["expected_output"])
+                    head_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
+                elif sample["mask_index"] == 2:
+                    raw_tail_metrics.update_state(ranking, positive_sample_index=sample["expected_output"])
+                    tail_metrics.update_state(filtered_ranking, positive_sample_index=target_index)
+                else:
+                    raise ValueError(f"Invalid `mask_index`: {sample['mask_index']}")
+        raw_averaged_evaluation_metrics = EvaluationMetrics.get_average_metrics(raw_head_metrics, raw_tail_metrics)
+        averaged_evaluation_metrics = EvaluationMetrics.get_average_metrics(head_metrics, tail_metrics)
         return {
+            "raw_metrics_head": raw_head_metrics,
+            "raw_metrics_tail": raw_tail_metrics,
+            "raw_metrics_averaged": raw_averaged_evaluation_metrics,
             "metrics_head": head_metrics,
             "metrics_tail": tail_metrics,
-            "metrics_averaged": average_evaluation_metrics
+            "metrics_averaged": averaged_evaluation_metrics,
         }
 
-    def _compute_and_report_losses(self, samples, step):
-        predictions = self.model(samples, training=False)
-        loss_value = self.loss_object.get_mean_loss_of_samples(
-            true_labels=samples["output_index"], predictions=predictions
-        )
+    def _compute_and_report_losses(self, list_of_batched_samples, step):
+        loss_values = []
+        for batched_samples in list_of_batched_samples:
+            predictions = self.model(batched_samples, training=False)
+            loss_values.extend(self.loss_object.get_losses_of_samples(
+                true_labels=batched_samples["expected_output"], predictions=predictions
+            ))
+        loss_value = tf.reduce_mean(loss_values)
         tf.summary.scalar(name="losses/samples_loss", data=loss_value, step=step)
         regularization_loss = self.loss_object.get_regularization_loss(self.model)
         tf.summary.scalar(name="losses/regularization_loss", data=regularization_loss, step=step)
@@ -197,15 +207,15 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         self.model(next(self.iterator_of_samples), training=False)
 
     def evaluation_step(self, step):
-        samples = next(self.iterator_of_samples)
+        list_of_batched_samples = [next(self.iterator_of_samples), next(self.iterator_of_samples)]
         with self.summary_writer.as_default():
-            metrics = self._compute_and_report_metrics(samples, step)
-            self._compute_and_report_losses(samples, step)
+            metrics = self._compute_and_report_metrics(list_of_batched_samples, step)
+            self._compute_and_report_losses(list_of_batched_samples, step)
             self._maybe_report_learning_rate(step)
         return metrics["metrics_averaged"].result()[1]
 
     def log_metrics(self, logger):
         test_samples_count = 2 * len(self.dataset.graph_edges)
         samples_iterator = self.dataset.samples.unbatch().batch(test_samples_count).as_numpy_iterator()
-        named_metrics = self._compute_metrics_on_samples(batched_samples=next(samples_iterator))
+        named_metrics = self._compute_metrics_on_samples(list_of_batched_samples=[next(samples_iterator)])
         _log_dict_of_metrics(logger, named_metrics)

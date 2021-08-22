@@ -342,16 +342,6 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
             dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples
         )
 
-    def _get_sample_specification(self):
-        return {
-            "edge_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
-            "object_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
-            "object_types": tf.TensorSpec(shape=(3,), dtype=tf.int32),
-            "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
-            "true_entity_index": tf.TensorSpec(shape=(), dtype=tf.int32),
-            "output_index": tf.TensorSpec(shape=(), dtype=tf.int32),
-        }
-
     def _generate_samples(self, mask_index):
         for head_id, relation_id, tail_id in self.graph_edges:
             edge_ids = [head_id, relation_id, tail_id]
@@ -366,7 +356,7 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
                 "object_types": object_types,
                 "mask_index": mask_index,
                 "true_entity_index": 0 if mask_index == 2 else 2,
-                "output_index": output_index,
+                "expected_output": output_index,
             }
 
     @property
@@ -387,9 +377,36 @@ class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
         super(MaskedAllNeighboursDataset, self).__init__(*args, **kwargs)
         self.filter_repeated_samples = filter_repeated_samples
 
-    @property
-    def samples(self):
-        return super(MaskedAllNeighboursDataset, self).samples
+    def _generate_samples(self, mask_index):
+        if self.dataset_type != DatasetType.TRAINING:
+            samples_generator = super()._generate_samples(mask_index)
+            for sample in samples_generator:
+                yield sample
+            return
+        entity_edges = self.entity_output_edges if mask_index == 2 else self.entity_input_edges
+        for source_entity_id, source_edges in entity_edges.items():
+            relation_entities = collections.defaultdict(list)
+            for destination_entity_id, relation_id in source_edges:
+                relation_entities[relation_id].append(destination_entity_id)
+            for relation_id, destination_entities in relation_entities.items():
+                expected_output = np.zeros(shape=(self.entities_count,))
+                for destination_entity_id in destination_entities:
+                    expected_output[destination_entity_id] = 1.0
+                head_id = source_entity_id if mask_index == 2 else destination_entities[0]
+                tail_id = source_entity_id if mask_index == 0 else destination_entities[0]
+                edge_ids = [head_id, relation_id, tail_id]
+                object_ids = [head_id, relation_id, tail_id]
+                object_ids[mask_index] = MASKED_ENTITY_TOKEN_ID
+                object_types = list(self.EDGE_OBJECT_TYPES)
+                object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+                yield {
+                    "edge_ids": edge_ids,
+                    "object_ids": object_ids,
+                    "object_types": object_types,
+                    "mask_index": mask_index,
+                    "true_entity_index": 0 if mask_index == 2 else 2,
+                    "expected_output": expected_output,
+                }
 
 
 @gin.configurable

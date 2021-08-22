@@ -1,5 +1,7 @@
 import enum
 import functools
+from typing import Union
+
 import tensorflow as tf
 import gin.tf
 
@@ -98,10 +100,12 @@ class PostNormalizationTransformerEncoderLayer(TransformerEncoderLayer):
         return self.layer_norm2(attention_outputs + pointwise_outputs)
 
 
-def _get_encoder_layer_class_from_type(encoder_layer_type: TransformerEncoderLayerType):
+def _get_encoder_layer_class_from_type(encoder_layer_type: Union[TransformerEncoderLayerType, str]):
     type_classes = {
         TransformerEncoderLayerType.PRE_LAYER_NORM: PreNormalizationTransformerEncoderLayer,
         TransformerEncoderLayerType.POST_LAYER_NORM: PostNormalizationTransformerEncoderLayer,
+        "PRE_LAYER_NORM": PreNormalizationTransformerEncoderLayer,
+        "POST_LAYER_NORM": PostNormalizationTransformerEncoderLayer,
     }
     if encoder_layer_type not in type_classes.keys():
         raise ValueError(f"Invalid encoder layer type: {encoder_layer_type}")

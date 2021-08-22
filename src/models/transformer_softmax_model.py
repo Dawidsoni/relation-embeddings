@@ -48,9 +48,7 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         outputs = self.post_normalization_layer(outputs, training=training)
         outputs = tf.linalg.matmul(outputs, self.embeddings_layer.entity_embeddings, transpose_b=True)
         outputs += self.projection_bias
-        if self.model_config.use_sigmoid_as_output_layer:
-            return tf.nn.sigmoid(outputs)
-        return tf.nn.softmax(outputs)
+        return outputs
 
     def get_config(self):
         return {

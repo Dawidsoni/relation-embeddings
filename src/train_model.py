@@ -49,9 +49,10 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
     training_stopper = TrainingStopper()
     training_step = 1
     for training_samples in state.training_dataset.samples:
-        logger.info(f"Performing training step {training_step}")
         training_loss = state.model_trainer.train_step(training_samples, training_step)
-        logger.info(f"Loss value: {training_loss: .3f}")
+        if training_step % 100 == 0:
+            logger.info(f"Performing training step {training_step}")
+            logger.info(f"Loss value: {training_loss: .3f}")
         if training_step == 1:
             logger.info(f"Parameters count of a model: {state.model.count_params()}")
         if training_step % experiment_config.steps_per_evaluation == 0:
