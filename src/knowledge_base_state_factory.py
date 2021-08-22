@@ -18,7 +18,7 @@ from models.transe_model import TranseModel
 from models.transformer_binary_model import TransformerBinaryModel
 from models.transformer_transe_model import TransformerTranseModel
 from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
-    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset, ReversedEdgeDecoratorDataset
+    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset, ReversedEdgeDecoratorDataset, MaskedEntityOfPathDataset
 from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
     CrossEntropyLossObject
@@ -57,6 +57,7 @@ class ModelType(Enum):
     TRANSFORMER_SOFTMAX = 7
     TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS = 8
     TRANSFORMER_REVERSED_EDGE = 9
+    TRANSFORMER_PATH = 10
 
 
 def _create_loss_object(loss_type: LossType):
@@ -82,6 +83,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSFORMER_SOFTMAX: lambda: TransformerSoftmaxModel(embeddings_config),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: TransformerSoftmaxModel(embeddings_config),
         ModelType.TRANSFORMER_REVERSED_EDGE: lambda: TransformerSoftmaxModel(embeddings_config),
+        ModelType.TRANSFORMER_PATH: lambda: TransformerSoftmaxModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -93,28 +95,25 @@ def _create_dataset(
     model_type: ModelType,
     batch_size,
     prefetched_samples,
+    inference_mode,
     shuffle_dataset=False,
     sample_weights_model=None,
     sample_weights_loss_object=None,
 ):
-    sampling_edge_dataset_initializer = functools.partial(
-        SamplingEdgeDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset, sample_weights_model=sample_weights_model,
-        sample_weights_loss_object=sample_weights_loss_object, prefetched_samples=prefetched_samples,
-    )
+    common_args = {
+        "dataset_type": dataset_type, "data_directory": gin.REQUIRED, "batch_size": batch_size,
+        "shuffle_dataset": shuffle_dataset, "prefetched_samples": prefetched_samples, "inference_mode": inference_mode
+    }
+    sampling_args = {
+        "sample_weights_model": sample_weights_model, "sample_weights_loss_object": sample_weights_loss_object,
+        "neighbours_per_sample": gin.REQUIRED,
+    }
+    sampling_edge_dataset_initializer = functools.partial(SamplingEdgeDataset, **common_args, **sampling_args)
     sampling_neighbours_dataset_initializer = functools.partial(
-        SamplingNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
-        neighbours_per_sample=gin.REQUIRED, shuffle_dataset=shuffle_dataset, sample_weights_model=sample_weights_model,
-        sample_weights_loss_object=sample_weights_loss_object, prefetched_samples=prefetched_samples,
-    )
-    masked_entity_of_edge_dataset_initializer = functools.partial(
-        MaskedEntityOfEdgeDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
-    )
-    masked_all_neighbours_dataset_initializer = functools.partial(
-        MaskedAllNeighboursDataset, dataset_type=dataset_type, data_directory=gin.REQUIRED, batch_size=batch_size,
-        shuffle_dataset=shuffle_dataset, prefetched_samples=prefetched_samples,
-    )
+        SamplingNeighboursDataset, **common_args, **sampling_args)
+    masked_entity_of_edge_dataset_initializer = functools.partial(MaskedEntityOfEdgeDataset, **common_args)
+    masked_all_neighbours_dataset_initializer = functools.partial(MaskedAllNeighboursDataset, **common_args)
+    path_dataset_initializer = functools.partial(MaskedEntityOfPathDataset, **common_args)
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
@@ -126,6 +125,7 @@ def _create_dataset(
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: masked_all_neighbours_dataset_initializer(),
         ModelType.TRANSFORMER_REVERSED_EDGE: lambda: ReversedEdgeDecoratorDataset(
             masked_entity_of_edge_dataset_initializer()),
+        ModelType.TRANSFORMER_PATH: lambda: path_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -155,6 +155,7 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_trainer_initializer(),
+        ModelType.TRANSFORMER_PATH: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -166,7 +167,7 @@ def _create_model_evaluator(
 ):
     dataset_initializer = functools.partial(
         _create_dataset, dataset_type=dataset_type, shuffle_dataset=True, model_type=model_type,
-        prefetched_samples=prefetched_samples
+        prefetched_samples=prefetched_samples, inference_mode=True,
     )
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
@@ -194,6 +195,7 @@ def _create_model_evaluator(
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_evaluator_initializer(),
+        ModelType.TRANSFORMER_PATH: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -208,7 +210,9 @@ def _create_embeddings_config(
     position_embeddings_path=gin.REQUIRED,
     special_token_embeddings_path=gin.REQUIRED,
 ):
-    dataset = _create_dataset(DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10)
+    dataset = _create_dataset(
+        DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10, inference_mode=False
+    )
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
     )
@@ -262,6 +266,7 @@ def create_knowledge_base_state(
         sample_weights_model=sample_weights_model,
         sample_weights_loss_object=sample_weights_loss_object,
         prefetched_samples=1,
+        inference_mode=False,
     )
     init_eval = functools.partial(
         _create_model_evaluator,

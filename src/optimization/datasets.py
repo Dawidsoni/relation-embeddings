@@ -75,6 +75,15 @@ def _interleave_datasets(dataset1, dataset2):
     )
 
 
+def _interleave_datasets_with_probs(datasets, probs, signature):
+    def generator():
+        iterators = [iter(dataset.repeat()) for dataset in datasets]
+        while True:
+            index = np.random.choice(len(iterators), p=probs)
+            yield next(iterators[index])
+    return tf.data.Dataset.from_generator(lambda: generator(), output_signature=signature)
+
+
 def _sample_edges(edges, banned_edges, neighbours_per_sample):
     if len(edges) > neighbours_per_sample:
         chosen_indexes = np.random.choice(len(edges), size=neighbours_per_sample + 1, replace=False)
@@ -105,12 +114,16 @@ def get_existing_graph_edges(data_directory):
 class Dataset(object):
     EDGE_OBJECT_TYPES = (ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value)
 
-    def __init__(self, dataset_type, data_directory, batch_size, shuffle_dataset=False, prefetched_samples=10):
+    def __init__(
+        self, dataset_type, data_directory, batch_size, shuffle_dataset=False, prefetched_samples=10,
+        inference_mode=False
+    ):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
         self.shuffle_dataset = shuffle_dataset
         self.prefetched_samples = prefetched_samples
+        self.inference_mode = inference_mode
         entity_ids = _extract_entity_ids(data_directory)
         relation_ids = _extract_relation_ids(data_directory)
         self.ids_of_entities = list(entity_ids.values())
@@ -164,10 +177,10 @@ class SamplingEdgeDataset(Dataset):
     def __init__(
         self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
         negatives_per_positive=1, sample_weights_model=None, sample_weights_loss_object=None,
-        sample_weights_count=100, prefetched_samples=10,
+        sample_weights_count=100, prefetched_samples=10, inference_mode=False
     ):
         super(SamplingEdgeDataset, self).__init__(
-            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples
+            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples, inference_mode
         )
         self.negatives_per_positive = negatives_per_positive
         self.sample_weights_model = sample_weights_model
@@ -336,10 +349,11 @@ class SoftmaxDataset(Dataset, metaclass=ABCMeta):
 class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 
     def __init__(
-        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False, prefetched_samples=10
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False, prefetched_samples=10,
+        inference_mode=True
     ):
         super(MaskedEntityOfEdgeDataset, self).__init__(
-            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples
+            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples, inference_mode
         )
 
     def _generate_samples(self, mask_index):
@@ -407,6 +421,95 @@ class MaskedAllNeighboursDataset(MaskedEntityOfEdgeDataset):
                     "true_entity_index": 0 if mask_index == 2 else 2,
                     "expected_output": expected_output,
                 }
+
+
+@gin.configurable
+class MaskedEntityOfPathDataset(MaskedEntityOfEdgeDataset):
+
+    def __init__(
+        self, dataset_type, data_directory=gin.REQUIRED, batch_size=1, shuffle_dataset=False,
+        prefetched_samples=10, inference_mode=True, path_samples_proportion=0.3
+    ):
+        super(MaskedEntityOfPathDataset, self).__init__(
+            dataset_type, data_directory, batch_size, shuffle_dataset, prefetched_samples, inference_mode
+        )
+        self.path_samples_proportion = path_samples_proportion
+
+    def _get_sample_specification(self):
+        return {
+            "edge_ids": tf.TensorSpec(shape=(3, ), dtype=tf.int32),
+            "object_ids": tf.TensorSpec(shape=(5, ), dtype=tf.int32),
+            "object_types": tf.TensorSpec(shape=(5,), dtype=tf.int32),
+            "mask_index": tf.TensorSpec(shape=(), dtype=tf.int32),
+            "true_entity_index": tf.TensorSpec(shape=(), dtype=tf.int32),
+            "expected_output": tf.TensorSpec(shape=(), dtype=tf.int32),
+        }
+
+    def _map_edge_sample(self, sample):
+        sample["object_ids"].extend([MISSING_RELATION_TOKEN_ID, MISSING_RELATION_TOKEN_ID])
+        sample["object_types"].extend([ObjectType.SPECIAL_TOKEN.value, ObjectType.SPECIAL_TOKEN.value])
+        return sample
+
+    def _maybe_sample_edge(self, entity_id):
+        edges_count = len(self.entity_output_edges[entity_id])
+        if edges_count == 0:
+            return None
+        return self.entity_output_edges[entity_id][np.random.choice(edges_count)]
+
+    def _generate_path_samples(self, mask_index):
+        entities_sampler = _get_int_random_variables_iterator(low=0, high=self.entities_count)
+        while True:
+            head_id = next(entities_sampler)
+            intermediate_edge = self._maybe_sample_edge(head_id)
+            if intermediate_edge is None:
+                continue
+            intermediate_entity_id, relation1_id = intermediate_edge
+            tail_edge = self._maybe_sample_edge(intermediate_entity_id)
+            if tail_edge is None:
+                continue
+            tail_id, relation2_id = tail_edge
+            if tail_id == head_id:
+                continue
+            object_ids = [head_id, MISSING_RELATION_TOKEN_ID, tail_id, relation1_id, relation2_id]
+            output_index = object_ids[mask_index]
+            object_ids[mask_index] = MASKED_ENTITY_TOKEN_ID
+            object_types = [
+                ObjectType.ENTITY.value, ObjectType.SPECIAL_TOKEN.value, ObjectType.ENTITY.value,
+                ObjectType.RELATION.value, ObjectType.RELATION.value
+            ]
+            object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+            yield {
+                "edge_ids": [head_id, MISSING_RELATION_TOKEN_ID, tail_id],
+                "object_ids": object_ids,
+                "object_types": object_types,
+                "mask_index": mask_index,
+                "true_entity_index": 0 if mask_index == 2 else 2,
+                "expected_output": output_index,
+            }
+
+    @property
+    def samples(self):
+        head_edge_samples = tf.data.Dataset.from_tensor_slices(dict(_map_list_of_dicts_to_dict(
+            list(map(self._map_edge_sample, list(self._generate_samples(mask_index=0))))
+        )))
+        tail_edge_samples = tf.data.Dataset.from_tensor_slices(dict(_map_list_of_dicts_to_dict(
+            list(map(self._map_edge_sample, list(self._generate_samples(mask_index=2))))
+        )))
+        edge_samples = _interleave_datasets(head_edge_samples, tail_edge_samples)
+        if self.inference_mode:
+            return self._get_processed_dataset(edge_samples)
+        head_path_samples = tf.data.Dataset.from_generator(
+            lambda: self._generate_path_samples(mask_index=0), output_signature=self._get_sample_specification()
+        )
+        tail_path_samples = tf.data.Dataset.from_generator(
+            lambda: self._generate_path_samples(mask_index=2), output_signature=self._get_sample_specification()
+        )
+        path_samples = _interleave_datasets(head_path_samples, tail_path_samples)
+        return self._get_processed_dataset(_interleave_datasets_with_probs(
+            datasets=[edge_samples, path_samples],
+            probs=[1.0 - self.path_samples_proportion, self.path_samples_proportion],
+            signature=self._get_sample_specification(),
+        ))
 
 
 @gin.configurable
