@@ -71,7 +71,7 @@ def run_parameter_search(gin_configs, gin_bindings, search_config):
     random.shuffle(parameter_configs)
     for parameter_config in parameter_configs:
         experiment_bindings = [
-            f"{key} = '{value}'" if isinstance(value, str) and value[0] != "@" else f"{key} = {value}"
+            f"{key} = '{value}'" if isinstance(value, str) and value[0] not in "@%" else f"{key} = {value}"
             for key, value in parameter_config.items()
         ]
         run_experiment(

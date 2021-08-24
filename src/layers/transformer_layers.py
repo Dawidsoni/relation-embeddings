@@ -104,8 +104,6 @@ def _get_encoder_layer_class_from_type(encoder_layer_type: Union[TransformerEnco
     type_classes = {
         TransformerEncoderLayerType.PRE_LAYER_NORM: PreNormalizationTransformerEncoderLayer,
         TransformerEncoderLayerType.POST_LAYER_NORM: PostNormalizationTransformerEncoderLayer,
-        "PRE_LAYER_NORM": PreNormalizationTransformerEncoderLayer,
-        "POST_LAYER_NORM": PostNormalizationTransformerEncoderLayer,
     }
     if encoder_layer_type not in type_classes.keys():
         raise ValueError(f"Invalid encoder layer type: {encoder_layer_type}")

@@ -4,6 +4,13 @@ MaskedEntityOfEdgeDataset.data_directory = "../data/FB15k-237"
 MaskedEntityOfEdgeDataset.batch_size = 512
 
 
+# Training Dataset
+
+phase1/TrainingPhaseTemplate.dataset_templates_probs = [(@MaskedEntityOfEdgeDataset, 1.0)]
+phase1/TrainingPhaseTemplate.steps = 100_000
+
+_create_training_dataset.training_phase_templates = [@phase1/TrainingPhaseTemplate()]
+
 # LossObject
 
 create_knowledge_base_state.loss_type = %LossType.CROSS_ENTROPY
@@ -16,7 +23,7 @@ CrossEntropyLossObject.label_smoothing = 0.75
 EmbeddingsConfig.embeddings_dimension = 256
 EmbeddingsConfig.trainable_embeddings = True
 EmbeddingsConfig.use_position_embeddings = True
-EmbeddingsConfig.position_embeddings_max_inputs_length = 3
+EmbeddingsConfig.position_embeddings_max_inputs_length = 5
 EmbeddingsConfig.use_fourier_series_in_position_embeddings = False
 EmbeddingsConfig.position_embeddings_trainable = True
 
@@ -38,7 +45,6 @@ StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerTyp
 
 TransformerSoftmaxModelConfig.use_pre_normalization = True
 TransformerSoftmaxModelConfig.pre_dropout_rate = 0.1
-TransformerSoftmaxModelConfig.use_sigmoid_as_output_layer = False
 
 TransformerSoftmaxModel.model_config = @TransformerSoftmaxModelConfig()
 create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_SOFTMAX

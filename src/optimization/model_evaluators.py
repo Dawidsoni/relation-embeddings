@@ -1,10 +1,10 @@
 from abc import abstractmethod
-from typing import Optional, List, Tuple, Union
+from typing import Optional, Union
 import tensorflow as tf
 
 from models.knowledge_completion_model import KnowledgeCompletionModel
-from optimization import datasets
-from optimization.datasets import SamplingEdgeDataset, Dataset, SoftmaxDataset
+from datasets import dataset_utils
+from datasets.raw_dataset import RawDataset
 from optimization.edges_producer import EdgesProducer
 from optimization.evaluation_metrics import EvaluationMetrics
 from optimization.existing_edges_filter import ExistingEdgesFilter
@@ -45,7 +45,7 @@ class ModelEvaluator(object):
         self,
         model: KnowledgeCompletionModel,
         loss_object: Union[SamplingLossObject, SupervisedLossObject],
-        dataset: Dataset,
+        dataset: RawDataset,
         output_directory: str,
         learning_rate_scheduler: Optional[LearningRateSchedule],
     ):
@@ -97,7 +97,7 @@ class SamplingModelEvaluator(ModelEvaluator):
 
     def __init__(self, **kwargs):
         super(SamplingModelEvaluator, self).__init__(**kwargs)
-        existing_graph_edges = datasets.get_existing_graph_edges(self.dataset.data_directory)
+        existing_graph_edges = dataset_utils.get_existing_graph_edges(self.dataset.data_directory)
         self.edges_producer = EdgesProducer(self.dataset.ids_of_entities, existing_graph_edges)
 
     def _compute_metrics_on_samples(self, batched_samples):
@@ -159,7 +159,7 @@ class SoftmaxModelEvaluator(ModelEvaluator):
 
     def __init__(self, **kwargs):
         super(SoftmaxModelEvaluator, self).__init__(**kwargs)
-        existing_graph_edges = datasets.get_existing_graph_edges(self.dataset.data_directory)
+        existing_graph_edges = dataset_utils.get_existing_graph_edges(self.dataset.data_directory)
         self.existing_edges_filter = ExistingEdgesFilter(self.dataset.entities_count, existing_graph_edges)
 
     def _compute_metrics_on_samples(self, list_of_batched_samples):

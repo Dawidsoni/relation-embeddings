@@ -3,6 +3,7 @@ import gin.tf
 import tensorflow as tf
 import logging
 import os
+import functools
 from dataclasses import dataclass
 
 
@@ -32,8 +33,11 @@ def init_gin_configurables():
     gin.external_configurable(tf.reduce_min, module='tf')
 
 
-def init_and_get_logger(logs_location, experiment_id):
+@functools.lru_cache(maxsize=None)
+def init_or_get_logger(logs_location, experiment_id):
     logger = logging.getLogger(DEFAULT_LOGGER_NAME)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
     if not os.path.exists(logs_location):
         os.makedirs(logs_location)
     file_handler = logging.FileHandler(os.path.join(logs_location, f"{experiment_id}.log"), mode='w')
@@ -43,5 +47,4 @@ def init_and_get_logger(logs_location, experiment_id):
     stdout_handler = logging.StreamHandler()
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
-    logger.setLevel(logging.INFO)
     return logger

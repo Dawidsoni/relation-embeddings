@@ -8,7 +8,7 @@ import utils
 
 class TrainingStopper(object):
 
-    def __init__(self, iterations_to_stop=5):
+    def __init__(self, iterations_to_stop=7):
         self.iterations_to_stop = iterations_to_stop
         self.best_value = float("-inf")
         self.iterations_since_best_value = -1
@@ -45,7 +45,7 @@ def mrr_too_low(mrr, threshold=0.0):
 
 def train_and_evaluate_model(experiment_config, experiment_id, logger):
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
-    state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
+    state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder, logger)
     training_stopper = TrainingStopper()
     training_step = 1
     for training_samples in state.training_dataset.samples:
@@ -84,7 +84,7 @@ def prepare_and_train_model(gin_configs, gin_bindings):
     gin.parse_config_files_and_bindings(gin_configs, gin_bindings)
     experiment_config = utils.ExperimentConfig()
     experiment_id = f"{experiment_config.experiment_name}_{int(time.time())}"
-    logger = utils.init_and_get_logger(experiment_config.logs_output_folder, experiment_id)
+    logger = utils.init_or_get_logger(experiment_config.logs_output_folder, experiment_id)
     log_experiment_information(logger, experiment_config.experiment_name, gin_configs, gin_bindings)
     train_and_evaluate_model(experiment_config, experiment_id, logger)
 

@@ -5,7 +5,9 @@ import gin.tf
 
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.conve_model import ConvEModelConfig, ConvEModel
-from optimization.datasets import SamplingEdgeDataset, DatasetType, MaskedEntityOfEdgeDataset
+from datasets.sampling_datasets import SamplingEdgeDataset
+from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
+from datasets.dataset_utils import DatasetType
 from optimization.model_evaluators import SamplingModelEvaluator, SoftmaxModelEvaluator
 from optimization.loss_objects import NormLossObject, CrossEntropyLossObject
 from models.transe_model import TranseModel

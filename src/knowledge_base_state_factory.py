@@ -1,9 +1,14 @@
-from typing import Optional
+import logging
+from typing import Optional, List
 import os
 from dataclasses import dataclass
 from enum import Enum
 import functools
 
+from datasets.dataset_utils import DatasetType
+from datasets.sampling_datasets import SamplingEdgeDataset
+from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
+from datasets.training_datasets import TrainingDataset, TrainingPhase, TrainingPhaseTemplate
 from models.transformer_softmax_model import TransformerSoftmaxModel
 
 import numpy as np
@@ -15,10 +20,6 @@ from models.convkb_model import ConvKBModel
 from models.knowledge_completion_model import KnowledgeCompletionModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
-from models.transformer_binary_model import TransformerBinaryModel
-from models.transformer_transe_model import TransformerTranseModel
-from optimization.datasets import Dataset, SamplingEdgeDataset, DatasetType, SamplingNeighboursDataset, \
-    MaskedEntityOfEdgeDataset, MaskedAllNeighboursDataset, ReversedEdgeDecoratorDataset, MaskedEntityOfPathDataset
 from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
 from optimization.loss_objects import LossObject, NormLossObject, SoftplusLossObject, BinaryCrossEntropyLossObject, \
     CrossEntropyLossObject
@@ -30,7 +31,7 @@ from optimization.model_trainers import ModelTrainer, SamplingModelTrainer, Soft
 class KnowledgeBaseState(object):
     model: KnowledgeCompletionModel
     best_model: KnowledgeCompletionModel
-    training_dataset: Dataset
+    training_dataset: TrainingDataset
     loss_object: LossObject
     model_trainer: ModelTrainer
     training_evaluator: ModelEvaluator
@@ -51,13 +52,8 @@ class ModelType(Enum):
     TRANSE = 1
     STRANSE = 2
     CONVKB = 3
-    TRANSFORMER_TRANSE = 4
-    TRANSFORMER_BINARY = 5
-    CONVE = 6
-    TRANSFORMER_SOFTMAX = 7
-    TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS = 8
-    TRANSFORMER_REVERSED_EDGE = 9
-    TRANSFORMER_PATH = 10
+    CONVE = 4
+    TRANSFORMER_SOFTMAX = 5
 
 
 def _create_loss_object(loss_type: LossType):
@@ -77,59 +73,59 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
         ModelType.TRANSE: lambda: TranseModel(embeddings_config),
         ModelType.STRANSE: lambda: STranseModel(embeddings_config),
         ModelType.CONVKB: lambda: ConvKBModel(embeddings_config),
-        ModelType.TRANSFORMER_TRANSE: lambda: TransformerTranseModel(embeddings_config),
-        ModelType.TRANSFORMER_BINARY: lambda: TransformerBinaryModel(embeddings_config),
         ModelType.CONVE: lambda: ConvEModel(embeddings_config),
         ModelType.TRANSFORMER_SOFTMAX: lambda: TransformerSoftmaxModel(embeddings_config),
-        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: TransformerSoftmaxModel(embeddings_config),
-        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: TransformerSoftmaxModel(embeddings_config),
-        ModelType.TRANSFORMER_PATH: lambda: TransformerSoftmaxModel(embeddings_config),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
     return type_mappings[model_type]()
 
 
-def _create_dataset(
+def _create_inference_dataset(
     dataset_type,
     model_type: ModelType,
     batch_size,
     prefetched_samples,
-    inference_mode,
     shuffle_dataset=False,
     sample_weights_model=None,
     sample_weights_loss_object=None,
 ):
     common_args = {
         "dataset_type": dataset_type, "data_directory": gin.REQUIRED, "batch_size": batch_size,
-        "shuffle_dataset": shuffle_dataset, "prefetched_samples": prefetched_samples, "inference_mode": inference_mode
+        "shuffle_dataset": shuffle_dataset, "prefetched_samples": prefetched_samples
     }
     sampling_args = {
         "sample_weights_model": sample_weights_model, "sample_weights_loss_object": sample_weights_loss_object,
         "neighbours_per_sample": gin.REQUIRED,
     }
     sampling_edge_dataset_initializer = functools.partial(SamplingEdgeDataset, **common_args, **sampling_args)
-    sampling_neighbours_dataset_initializer = functools.partial(
-        SamplingNeighboursDataset, **common_args, **sampling_args)
     masked_entity_of_edge_dataset_initializer = functools.partial(MaskedEntityOfEdgeDataset, **common_args)
-    masked_all_neighbours_dataset_initializer = functools.partial(MaskedAllNeighboursDataset, **common_args)
-    path_dataset_initializer = functools.partial(MaskedEntityOfPathDataset, **common_args)
     type_mappings = {
         ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
         ModelType.CONVKB: lambda: sampling_edge_dataset_initializer(),
-        ModelType.TRANSFORMER_TRANSE: lambda: sampling_neighbours_dataset_initializer(),
-        ModelType.TRANSFORMER_BINARY: lambda: sampling_neighbours_dataset_initializer(),
         ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: masked_entity_of_edge_dataset_initializer(),
-        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: masked_all_neighbours_dataset_initializer(),
-        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: ReversedEdgeDecoratorDataset(
-            masked_entity_of_edge_dataset_initializer()),
-        ModelType.TRANSFORMER_PATH: lambda: path_dataset_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
     return type_mappings[model_type]()
+
+
+def _resolve_training_template(template):
+    return template(dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10)
+
+
+@gin.configurable
+def _create_training_dataset(logger, training_phase_templates: List[TrainingPhaseTemplate] = gin.REQUIRED):
+    training_phases = [
+        TrainingPhase(
+            datasets_probs=[(_resolve_training_template(tpl), prob) for tpl, prob in phase.dataset_templates_probs],
+            steps=phase.steps
+        )
+        for phase in training_phase_templates
+    ]
+    return TrainingDataset(training_phases, logger)
 
 
 def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule):
@@ -149,13 +145,8 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
         ModelType.TRANSE: lambda: sampling_trainer_initializer(),
         ModelType.STRANSE: lambda: sampling_trainer_initializer(),
         ModelType.CONVKB: lambda: sampling_trainer_initializer(),
-        ModelType.TRANSFORMER_TRANSE: lambda: sampling_trainer_initializer(),
-        ModelType.TRANSFORMER_BINARY: lambda: sampling_trainer_initializer(),
         ModelType.CONVE: lambda: softmax_trainer_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_trainer_initializer(),
-        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_trainer_initializer(),
-        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_trainer_initializer(),
-        ModelType.TRANSFORMER_PATH: lambda: softmax_trainer_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -166,8 +157,8 @@ def _create_model_evaluator(
     outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler
 ):
     dataset_initializer = functools.partial(
-        _create_dataset, dataset_type=dataset_type, shuffle_dataset=True, model_type=model_type,
-        prefetched_samples=prefetched_samples, inference_mode=True,
+        _create_inference_dataset, dataset_type=dataset_type, shuffle_dataset=True, model_type=model_type,
+        prefetched_samples=prefetched_samples
     )
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
@@ -189,13 +180,8 @@ def _create_model_evaluator(
         ModelType.TRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.STRANSE: lambda: sampling_evaluator_initializer(),
         ModelType.CONVKB: lambda: sampling_evaluator_initializer(),
-        ModelType.TRANSFORMER_TRANSE: lambda: sampling_evaluator_initializer(),
-        ModelType.TRANSFORMER_BINARY: lambda: sampling_evaluator_initializer(),
         ModelType.CONVE: lambda: softmax_evaluator_initializer(),
         ModelType.TRANSFORMER_SOFTMAX: lambda: softmax_evaluator_initializer(),
-        ModelType.TRANSFORMER_SOFTMAX_ALL_NEIGHBOURS: lambda: softmax_evaluator_initializer(),
-        ModelType.TRANSFORMER_REVERSED_EDGE: lambda: softmax_evaluator_initializer(),
-        ModelType.TRANSFORMER_PATH: lambda: softmax_evaluator_initializer(),
     }
     if model_type not in type_mappings:
         raise ValueError(f"Invalid model type: {model_type}")
@@ -210,8 +196,8 @@ def _create_embeddings_config(
     position_embeddings_path=gin.REQUIRED,
     special_token_embeddings_path=gin.REQUIRED,
 ):
-    dataset = _create_dataset(
-        DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10, inference_mode=False
+    dataset = _create_inference_dataset(
+        DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10
     )
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
@@ -235,20 +221,10 @@ def _create_embeddings_config(
     )
 
 
-@gin.configurable
-def create_sampling_weights_model_with_loss_object(model_type: Optional[ModelType] = None):
-    if model_type is None:
-        return None, None
-    with gin.config_scope("sampling_weights"):
-        embeddings_config = _create_embeddings_config(model_type)
-        model = _create_model(embeddings_config, model_type=model_type)
-        loss_object = _create_loss_object(loss_type=LossType.NORM)
-        return model, loss_object
-
-
-@gin.configurable(blacklist=['tensorboard_folder'])
+@gin.configurable(blacklist=['tensorboard_folder', 'logger'])
 def create_knowledge_base_state(
     tensorboard_folder: str,
+    logger: logging.Logger,
     model_type: ModelType = gin.REQUIRED,
     loss_type: LossType = gin.REQUIRED,
 ):
@@ -257,17 +233,7 @@ def create_knowledge_base_state(
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)
     best_model = _create_model(embeddings_config, model_type)
-    sample_weights_model, sample_weights_loss_object = create_sampling_weights_model_with_loss_object()
-    training_dataset = _create_dataset(
-        DatasetType.TRAINING,
-        batch_size=gin.REQUIRED,
-        shuffle_dataset=True,
-        model_type=model_type,
-        sample_weights_model=sample_weights_model,
-        sample_weights_loss_object=sample_weights_loss_object,
-        prefetched_samples=1,
-        inference_mode=False,
-    )
+    training_dataset = _create_training_dataset(logger)
     init_eval = functools.partial(
         _create_model_evaluator,
         model_type=model_type, model=model, loss_object=loss_object, learning_rate_scheduler=learning_rate_scheduler,

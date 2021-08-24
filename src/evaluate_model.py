@@ -17,7 +17,7 @@ def prepare_and_evaluate_model(gin_configs, gin_bindings):
     gin.parse_config_files_and_bindings(gin_configs, gin_bindings)
     experiment_config = utils.ExperimentConfig()
     experiment_id = f"evaluation_{experiment_config.experiment_name}_{int(time.time())}"
-    logger = utils.init_and_get_logger(experiment_config.logs_output_folder, experiment_id)
+    logger = utils.init_or_get_logger(experiment_config.logs_output_folder, experiment_id)
     tensorboard_folder = os.path.join(experiment_config.tensorboard_outputs_folder, experiment_id)
     state = knowledge_base_state_factory.create_knowledge_base_state(tensorboard_folder)
     load_and_set_model_weights(state)

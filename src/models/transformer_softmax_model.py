@@ -14,7 +14,6 @@ from optimization import parameters_factory
 class TransformerSoftmaxModelConfig(object):
     use_pre_normalization: bool
     pre_dropout_rate: float
-    use_sigmoid_as_output_layer: float
 
 
 @gin.configurable(blacklist=['embeddings_config'])

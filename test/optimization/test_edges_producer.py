@@ -2,7 +2,8 @@ import tensorflow as tf
 import numpy as np
 from unittest import mock
 
-from optimization.datasets import Dataset, DatasetType
+from datasets.raw_dataset import RawDataset
+from datasets.dataset_utils import DatasetType
 from optimization.edges_producer import EdgesProducer
 
 
@@ -12,8 +13,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_produce_head_edges(self, randint_mock):
         randint_mock.return_value = 0
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         head_edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 0, 1]), "object_types": np.array([1, 0, 2])}
         )
@@ -24,8 +25,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_produce_tail_edges(self, randint_mock):
         randint_mock.return_value = 0
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         tail_edges, target_index = edges_producer.produce_tail_edges(
             sample={"object_ids": np.array([1, 1, 1]), "object_types": np.array([1, 0, 2])}
         )
@@ -36,8 +37,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_target_pattern_index(self, randint_mock):
         randint_mock.return_value = 1
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 0, 1]), "object_types": np.array([1, 0, 2])}
         )
@@ -48,8 +49,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_edge_pattern_in_existing_edges(self, randint_mock):
         randint_mock.return_value = 0
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([0, 0, 1]), "object_types": np.array([1, 0, 2])}
         )
@@ -60,8 +61,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_multiple_object_ids(self, randint_mock):
         randint_mock.return_value = 0
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 0, 1, 2, 3]), "object_types": np.array([1, 0, 2, 1, 0])},
         )
@@ -72,8 +73,8 @@ class TestEdgesProducer(tf.test.TestCase):
     @mock.patch.object(np.random, 'randint')
     def test_edge_information(self, randint_mock):
         randint_mock.return_value = 0
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
-        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=False)
         edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 0, 1]), "object_types": np.array([1, 0, 2]),
                     "position": 5},
@@ -84,7 +85,7 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertEqual(0, target_index)
 
     def test_use_entities_order_two_output_edges(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=True)
         head_edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 0, 1]), "object_types": np.array([1, 0, 2])}
@@ -94,7 +95,7 @@ class TestEdgesProducer(tf.test.TestCase):
         self.assertEqual(0, target_index)
 
     def test_use_entities_order_three_output_edges(self):
-        dataset = Dataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
+        dataset = RawDataset(dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=1)
         edges_producer = EdgesProducer(dataset.ids_of_entities, dataset.graph_edges, use_entities_order=True)
         head_edges, target_index = edges_producer.produce_head_edges(
             sample={"object_ids": np.array([1, 1, 1]), "object_types": np.array([1, 0, 2])}

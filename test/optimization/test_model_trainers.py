@@ -7,7 +7,9 @@ import gin.tf
 from layers.embeddings_layers import ObjectType
 from models.conv_base_model import EmbeddingsConfig, ConvModelConfig
 from models.conve_model import ConvEModel, ConvEModelConfig
-from optimization.datasets import SamplingEdgeDataset, DatasetType, MaskedEntityOfEdgeDataset
+from datasets.raw_dataset import DatasetType
+from datasets.sampling_datasets import SamplingEdgeDataset
+from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
 from optimization.model_trainers import SamplingModelTrainer, SoftmaxModelTrainer
 from optimization.loss_objects import NormLossObject, CrossEntropyLossObject
 from models.transe_model import TranseModel
@@ -103,14 +105,13 @@ class TestModelTrainers(tf.test.TestCase):
             conv_dropout_rate=0.5, hidden_dropout_rate=0.5,
         )
         model = ConvEModel(embeddings_config, model_config)
-        loss_object = CrossEntropyLossObject(label_smoothing=0.1)
+        loss_object = CrossEntropyLossObject(label_smoothing=0.2)
         learning_rate_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=1e-3, decay_steps=1, decay_rate=0.5
         )
         trainer = SoftmaxModelTrainer(model, loss_object, learning_rate_schedule)
-        trainer.train_step(training_samples=next(iter(dataset.samples)), training_step=1)
+        trainer.train_step(training_samples=next(iter(dataset.samples)), training_step=10)
         self.assertGreater(np.sum(self.init_entity_embeddings != model.embeddings_layer.entity_embeddings), 0)
-        self.assertGreater(np.sum(self.init_relation_embeddings != model.embeddings_layer.relation_embeddings), 0)
 
 
 if __name__ == '__main__':

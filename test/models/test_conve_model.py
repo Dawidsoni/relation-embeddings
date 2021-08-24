@@ -1,8 +1,9 @@
 import tensorflow as tf
 
 from models.conve_model import ConvEModel, ConvEModelConfig
-from layers.embeddings_layers import ObjectType, EmbeddingsConfig
-from optimization.datasets import MaskedEntityOfEdgeDataset, DatasetType
+from layers.embeddings_layers import EmbeddingsConfig
+from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
+from datasets.dataset_utils import DatasetType
 
 
 class TestConvEModel(tf.test.TestCase):
