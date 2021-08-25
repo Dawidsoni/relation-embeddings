@@ -80,7 +80,6 @@ class TestModelTrainers(tf.test.TestCase):
             [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value],
             shape=(4, 3)
         ).tolist()
-        print(model_mock.call_args_list[0][0][0]["object_ids"])
         self.assertAllEqual([[0, 0, 1], [1, 1, 2], [0, 0, 1], [1, 1, 2]],
                             model_mock.call_args_list[0][0][0]["object_ids"])
         self.assertAllEqual(edge_object_types, model_mock.call_args_list[0][0][0]["object_types"])

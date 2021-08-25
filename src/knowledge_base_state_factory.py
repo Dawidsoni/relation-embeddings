@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import List
 import os
 from dataclasses import dataclass
 from enum import Enum
@@ -8,7 +8,7 @@ import functools
 from datasets.dataset_utils import DatasetType
 from datasets.sampling_datasets import SamplingEdgeDataset
 from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
-from datasets.training_datasets import TrainingDataset, TrainingPhase, TrainingPhaseTemplate
+from datasets.training_datasets import TrainingDataset, TrainingPhase, TrainingPhaseTemplate, PhaseDatasetTemplate
 from models.transformer_softmax_model import TransformerSoftmaxModel
 
 import numpy as np
@@ -37,6 +37,19 @@ class KnowledgeBaseState(object):
     training_evaluator: ModelEvaluator
     validation_evaluator: ModelEvaluator
     test_evaluator: ModelEvaluator
+
+
+class PhaseDatasetTemplateResolver(object):
+
+    def __init__(self):
+        self.ids_to_datasets = {}
+
+    def resolve_phase_dataset_template(self, template: PhaseDatasetTemplate):
+        if template.dataset_id not in self.ids_to_datasets:
+            self.ids_to_datasets[template.dataset_id] = template.dataset_template(
+                dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10
+            )
+        return self.ids_to_datasets[template.dataset_id]
 
 
 @gin.constants_from_enum
@@ -118,13 +131,14 @@ def _resolve_training_template(template):
 
 @gin.configurable
 def _create_training_dataset(logger, training_phase_templates: List[TrainingPhaseTemplate] = gin.REQUIRED):
-    training_phases = [
-        TrainingPhase(
-            datasets_probs=[(_resolve_training_template(tpl), prob) for tpl, prob in phase.dataset_templates_probs],
-            steps=phase.steps
-        )
-        for phase in training_phase_templates
-    ]
+    resolver = PhaseDatasetTemplateResolver()
+    training_phases = []
+    for phase_template in training_phase_templates:
+        datasets_probs = [
+            (resolver.resolve_phase_dataset_template(dataset_template), probability)
+            for dataset_template, probability in phase_template.dataset_templates_probs
+        ]
+        training_phases.append(TrainingPhase(datasets_probs=datasets_probs, steps=phase_template.steps))
     return TrainingDataset(training_phases, logger)
 
 

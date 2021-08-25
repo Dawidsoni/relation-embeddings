@@ -1,7 +1,6 @@
 import dataclasses
 import tensorflow as tf
 import gin.tf
-import numpy as np
 
 from layers.embeddings_layers import EmbeddingsConfig
 from models.transformer_softmax_model import TransformerSoftmaxModel, TransformerSoftmaxModelConfig
@@ -47,6 +46,13 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 3), outputs.shape)
         self.assertEqual(717, model.count_params())
+
+    def test_use_relations_outputs(self):
+        model_config = dataclasses.replace(self.default_model_config, use_relations_outputs=True)
+        model = TransformerSoftmaxModel(self.embeddings_config, model_config)
+        outputs = model(self.model_inputs)
+        self.assertAllEqual((5, 5), outputs.shape)
+        self.assertEqual(731, model.count_params())
 
 
 if __name__ == '__main__':

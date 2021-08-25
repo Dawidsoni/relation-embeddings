@@ -1,9 +1,3 @@
-# Dataset
-
-MaskedEntityOfEdgeDataset.data_directory = "../data/WN18RR"
-MaskedEntityOfEdgeDataset.batch_size = 512
-
-
 # LossObject
 
 create_knowledge_base_state.loss_type = %LossType.CROSS_ENTROPY
@@ -55,8 +49,7 @@ PiecewiseLinearDecayScheduler.warmup_steps = 8_000
 
 ExperimentConfig.experiment_name = "transformer_softmax_wn18rr_baseline"
 ExperimentConfig.training_steps = 80_000
-ExperimentConfig.steps_per_evaluation = 4000
+ExperimentConfig.steps_per_evaluation = 8000
 ExperimentConfig.tensorboard_outputs_folder = "/pio/scratch/1/i279743/tensorboard"
 ExperimentConfig.model_save_folder = "/pio/scratch/1/i279743/models"
 ExperimentConfig.logs_output_folder = "/pio/scratch/1/i279743/logs"
-mrr_too_low.threshold = 0.4

@@ -14,6 +14,7 @@ from optimization import parameters_factory
 class TransformerSoftmaxModelConfig(object):
     use_pre_normalization: bool
     pre_dropout_rate: float
+    use_relations_outputs: bool = False
 
 
 @gin.configurable(blacklist=['embeddings_config'])
@@ -32,9 +33,17 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.projection_bias = tf.Variable(
-            initial_value=tf.zeros_initializer()(shape=(self.embeddings_layer.config.entities_count, )),
+            initial_value=tf.zeros_initializer()(shape=(tf.shape(self._get_similarity_matrix())[0], )),
             trainable=True,
         )
+
+    def _get_similarity_matrix(self):
+        if self.model_config.use_relations_outputs:
+            return tf.concat(
+                [self.embeddings_layer.entity_embeddings, self.embeddings_layer.relation_embeddings],
+                axis=0,
+            )
+        return self.embeddings_layer.entity_embeddings
 
     def call(self, inputs, training=None, **kwargs):
         outputs = self.embeddings_layer(inputs, training=training)
@@ -45,7 +54,7 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         outputs = tf.gather(outputs, indices=inputs["mask_index"], axis=1, batch_dims=1)
         outputs = self.post_hidden_layer(outputs, training=training)
         outputs = self.post_normalization_layer(outputs, training=training)
-        outputs = tf.linalg.matmul(outputs, self.embeddings_layer.entity_embeddings, transpose_b=True)
+        outputs = tf.linalg.matmul(outputs, self._get_similarity_matrix(), transpose_b=True)
         outputs += self.projection_bias
         return outputs
 

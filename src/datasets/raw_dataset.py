@@ -1,14 +1,17 @@
 import collections
+import gin.tf
 from abc import abstractmethod
 
 from datasets import dataset_utils
 from datasets.dataset_utils import DatasetType
 
 
+@gin.configurable
 class RawDataset(object):
 
     def __init__(
-        self, dataset_type, data_directory, batch_size, shuffle_dataset=False, prefetched_samples=10
+        self, dataset_type=gin.REQUIRED, data_directory=gin.REQUIRED, batch_size=gin.REQUIRED,
+        shuffle_dataset=False, prefetched_samples=10
     ):
         self.dataset_type = dataset_type
         self.data_directory = data_directory

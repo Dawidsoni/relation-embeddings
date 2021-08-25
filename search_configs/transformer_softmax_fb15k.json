@@ -5,6 +5,14 @@
             "parameter_values": [0.0, 1e-7, 1e-6]
         },
         {
+            "parameter_name": "get_embeddings_initializer.stddev",
+            "parameter_values": [0.01, 0.02]
+        },
+        {
+            "parameter_name": "get_parameters_initializer.stddev",
+            "parameter_values": [0.01, 0.02]
+        },
+        {
             "parameter_name": "PiecewiseLinearDecayScheduler.decay_rate",
             "parameter_values": [0.1, 0.25]
         },
@@ -33,43 +41,26 @@
         {
             "parameter_name": "StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension",
             "parameter_values": [512, 1024]
+        },
+        {
+            "parameter_name": "_gin.config.phase_config",
+            "parameter_values": [
+                "../phase_configs/path_pretraining.gin",
+                "../phase_configs/multi_task_pretraining.gin"
+            ]
         }
     ],
     "banned_parameter_configs": [
         {
-            "cartesian_product": [
-                {
-                    "parameter_name": "TransformerSoftmaxModelConfig.pre_dropout_rate",
-                    "parameter_values": [0.2]
-                },
-                {
-                    "parameter_name": "StackedTransformerEncodersLayer.dropout_rate",
-                    "parameter_values": [0.3, 0.5]
-                }
+            "any_unequal": [
+                "TransformerSoftmaxModelConfig.pre_dropout_rate",
+                "StackedTransformerEncodersLayer.dropout_rate"
             ]
         },
         {
-            "cartesian_product": [
-                {
-                    "parameter_name": "TransformerSoftmaxModelConfig.pre_dropout_rate",
-                    "parameter_values": [0.3]
-                },
-                {
-                    "parameter_name": "StackedTransformerEncodersLayer.dropout_rate",
-                    "parameter_values": [0.2, 0.5]
-                }
-            ]
-        },
-        {
-            "cartesian_product": [
-                {
-                    "parameter_name": "TransformerSoftmaxModelConfig.pre_dropout_rate",
-                    "parameter_values": [0.5]
-                },
-                {
-                    "parameter_name": "StackedTransformerEncodersLayer.dropout_rate",
-                    "parameter_values": [0.2, 0.3]
-                }
+            "any_unequal": [
+                "get_embeddings_initializer.stddev",
+                "get_parameters_initializer.stddev"
             ]
         }
     ]

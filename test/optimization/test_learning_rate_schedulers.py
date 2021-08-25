@@ -7,7 +7,7 @@ class TestLearningRateSchedulers(tf.test.TestCase):
 
     def test_decay_rate_one(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.1, decay_steps=100, decay_rate=1.0, warmup_steps=0,
+            initial_learning_rate=0.1, decay_steps=100, decay_rate=1.0, warmup_steps=0, phases=[],
         )
         self.assertAllClose(0.1, scheduler(0))
         self.assertAllClose(0.1, scheduler(100))
@@ -15,7 +15,7 @@ class TestLearningRateSchedulers(tf.test.TestCase):
 
     def test_fold_points(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.3, decay_steps=100, decay_rate=0.1, warmup_steps=0,
+            initial_learning_rate=0.3, decay_steps=100, decay_rate=0.1, warmup_steps=0, phases=[],
         )
         self.assertAllClose(0.3, scheduler(0))
         self.assertAllClose(0.03, scheduler(100))
@@ -23,7 +23,7 @@ class TestLearningRateSchedulers(tf.test.TestCase):
 
     def test_points_between_folds(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=0,
+            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=0, phases=[],
         )
         self.assertAllClose(0.08, scheduler(20), atol=5e-3)
         self.assertAllClose(0.05, scheduler(50), atol=5e-3)
@@ -32,7 +32,7 @@ class TestLearningRateSchedulers(tf.test.TestCase):
 
     def test_warmup_steps(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=250,
+            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=250, phases=[],
         )
         self.assertAllClose(0.02, scheduler(49))
         self.assertAllClose(0.05, scheduler(124))
@@ -43,13 +43,24 @@ class TestLearningRateSchedulers(tf.test.TestCase):
 
     def test_optimizer_compatible(self):
         scheduler = PiecewiseLinearDecayScheduler(
-            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=0,
+            initial_learning_rate=0.1, decay_steps=100, decay_rate=0.1, warmup_steps=0, phases=[],
         )
         optimizer = tf.keras.optimizers.Adam(scheduler)
         model_variable = tf.Variable(initial_value=1.0)
         optimizer.apply_gradients(zip([1.0], [model_variable]))
         optimizer.apply_gradients(zip([1.0], [model_variable]))
         self.assertAllClose(0.8009, model_variable)
+
+    def test_phases(self):
+        scheduler = PiecewiseLinearDecayScheduler(
+            initial_learning_rate=0.3, decay_steps=100, decay_rate=0.1, warmup_steps=0, phases=[5000, 10_000, 15_000],
+        )
+        self.assertAllClose(0.3, scheduler(0))
+        self.assertAllClose(0.03, scheduler(100))
+        self.assertAllClose(0.003, scheduler(200))
+        self.assertAllClose(0.3, scheduler(10_000))
+        self.assertAllClose(0.03, scheduler(10_100))
+        self.assertAllClose(0.003, scheduler(10_200))
 
 
 if __name__ == '__main__':

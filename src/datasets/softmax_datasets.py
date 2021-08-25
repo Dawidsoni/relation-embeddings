@@ -1,3 +1,4 @@
+import itertools
 from abc import ABCMeta
 import numpy as np
 import gin.tf
@@ -44,10 +45,9 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 @gin.configurable
 class MaskedEntityOfPathDataset(SoftmaxDataset):
 
-    def __init__(self, max_samples=6_000_000, max_draws=18_000_000, **kwargs):
+    def __init__(self, max_samples=10_000_000, **kwargs):
         super(MaskedEntityOfPathDataset, self).__init__(**kwargs)
         self.max_samples = max_samples
-        self.max_draws = max_draws
 
     def _maybe_sample_edge(self, entity_id):
         edges_count = len(self.entity_output_edges[entity_id])
@@ -55,46 +55,71 @@ class MaskedEntityOfPathDataset(SoftmaxDataset):
             return None
         return self.entity_output_edges[entity_id][np.random.choice(edges_count)]
 
-    def _generate_samples(self, mask_index):
-        entities_sampler = dataset_utils.get_int_random_variables_iterator(low=0, high=self.entities_count)
-        generated_samples = set()
-        for _ in range(self.max_draws):
-            if len(generated_samples) >= self.max_samples:
-                break
-            head_id = next(entities_sampler)
-            intermediate_edge = self._maybe_sample_edge(head_id)
-            if intermediate_edge is None:
-                continue
-            intermediate_entity_id, relation1_id = intermediate_edge
-            tail_edge = self._maybe_sample_edge(intermediate_entity_id)
-            if tail_edge is None:
-                continue
-            tail_id, relation2_id = tail_edge
-            if tail_id == head_id:
-                continue
-            object_ids = [head_id, tail_id, relation1_id, relation2_id]
-            output_index = object_ids[mask_index]
-            object_types = [
-                ObjectType.ENTITY.value, ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.RELATION.value
-            ]
-            object_ids[mask_index] = dataset_utils.MASKED_ENTITY_TOKEN_ID
-            object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
-            generated_samples.add(tuple(object_ids))
+    def _generate_samples_with_head(self, head_id, mask_index):
+        for intermediate_entity_id, relation1_id in self.entity_output_edges[head_id]:
+            for tail_id, relation2_id in self.entity_output_edges[intermediate_entity_id]:
+                object_ids = [head_id, tail_id, relation1_id, relation2_id]
+                output_index = object_ids[mask_index]
+                object_types = [
+                    ObjectType.ENTITY.value, ObjectType.ENTITY.value, ObjectType.RELATION.value,
+                    ObjectType.RELATION.value
+                ]
+                object_ids[mask_index] = dataset_utils.MASKED_ENTITY_TOKEN_ID
+                object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+                yield {
+                    "edge_ids": [head_id, dataset_utils.MISSING_RELATION_TOKEN_ID, tail_id],
+                    "object_ids": object_ids,
+                    "object_types": object_types,
+                    "mask_index": mask_index,
+                    "true_entity_index": 0 if mask_index == 1 else 1,
+                    "expected_output": output_index,
+                    "positions": [0, 2, 3, 4],
+                }
+
+    def _generate_samples(self, max_samples_per_entity, mask_index):
+        for head_id in range(self.entities_count):
+            samples_generator = self._generate_samples_with_head(head_id, mask_index)
+            yield from itertools.islice(samples_generator, max_samples_per_entity)
+
+    @property
+    def samples(self):
+        max_samples_per_entity = (self.max_samples // (2 * self.entities_count))
+        head_samples = dataset_utils.iterator_of_samples_to_dataset(
+            self._generate_samples(max_samples_per_entity, mask_index=0)
+        )
+        tail_samples = dataset_utils.iterator_of_samples_to_dataset(
+            self._generate_samples(max_samples_per_entity, mask_index=1)
+        )
+        return self._get_processed_dataset(dataset_utils.interleave_datasets(head_samples, tail_samples))
+
+
+@gin.configurable
+class MaskedRelationOfEdgeDataset(SoftmaxDataset):
+
+    def __init__(self, **kwargs):
+        super(MaskedRelationOfEdgeDataset, self).__init__(**kwargs)
+
+    def _generate_samples(self):
+        for head_id, relation_id, tail_id in self.graph_edges:
+            edge_ids = [head_id, relation_id, tail_id]
+            output_index = self.entities_count + edge_ids[1]
+            object_ids = [head_id, relation_id, tail_id]
+            object_ids[1] = dataset_utils.MASKED_ENTITY_TOKEN_ID
+            object_types = list(dataset_utils.EDGE_OBJECT_TYPES)
+            object_types[1] = ObjectType.SPECIAL_TOKEN.value
             yield {
-                "edge_ids": [head_id, dataset_utils.MISSING_RELATION_TOKEN_ID, tail_id],
+                "edge_ids": edge_ids,
                 "object_ids": object_ids,
                 "object_types": object_types,
-                "mask_index": mask_index,
-                "true_entity_index": 0 if mask_index == 1 else 1,
+                "mask_index": 1,
+                "true_entity_index": -1,
                 "expected_output": output_index,
-                "positions": [0, 2, 3, 4],
             }
 
     @property
     def samples(self):
-        head_samples = dataset_utils.iterator_of_samples_to_dataset(self._generate_samples(mask_index=0))
-        tail_samples = dataset_utils.iterator_of_samples_to_dataset(self._generate_samples(mask_index=1))
-        return self._get_processed_dataset(dataset_utils.interleave_datasets(head_samples, tail_samples))
+        raw_samples = dataset_utils.iterator_of_samples_to_dataset(self._generate_samples())
+        return self._get_processed_dataset(raw_samples)
 
 
 """@gin.configurable

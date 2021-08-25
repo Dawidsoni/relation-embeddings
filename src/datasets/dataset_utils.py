@@ -6,6 +6,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import pandas as pd
+import itertools
 
 from layers.embeddings_layers import ObjectType
 
@@ -111,5 +112,6 @@ def get_existing_graph_edges(data_directory):
     )
 
 
-def iterator_of_samples_to_dataset(iterator):
-    return tf.data.Dataset.from_tensor_slices(dict(map_list_of_dicts_to_dict(list(iterator))))
+def iterator_of_samples_to_dataset(iterator, max_samples=None):
+    samples = list(iterator) if max_samples is None else itertools.islice(iterator, max_samples)
+    return tf.data.Dataset.from_tensor_slices(dict(map_list_of_dicts_to_dict(samples)))

@@ -12,7 +12,17 @@ def parse_training_args():
     return parser.parse_args()
 
 
-def get_cartesian_product_of_configs(parameter_configs):
+def get_list_of_unequal_params(config):
+    if "banned_parameter_configs" not in config:
+        return []
+    list_of_unequal_params = []
+    for banned_configs in config["banned_parameter_configs"]:
+        if "any_unequal" in banned_configs:
+            list_of_unequal_params.append(banned_configs["any_unequal"])
+    return list_of_unequal_params
+
+
+def get_cartesian_product_of_configs(parameter_configs, list_of_unequal_params=()):
     produced_configs = [{}]
     for parameter_config in parameter_configs:
         configs_with_parameter = []
@@ -21,12 +31,18 @@ def get_cartesian_product_of_configs(parameter_configs):
             for produced_config in produced_configs:
                 copied_config = produced_config.copy()
                 copied_config[parameter_name] = parameter_value
-                configs_with_parameter.append(copied_config)
+                skip_config = False
+                for unequal_params in list_of_unequal_params:
+                    unequal_values = [copied_config[param] for param in unequal_params if param in copied_config]
+                    if len(unequal_values) > 0 and any([value != unequal_values[0] for value in unequal_values]):
+                        skip_config = True
+                if not skip_config:
+                    configs_with_parameter.append(copied_config)
         produced_configs = configs_with_parameter
     return produced_configs
 
 
-def get_banned_configs(config):
+def get_banned_configs(config, parsed_configs):
     if "banned_parameter_configs" not in config:
         return []
     produced_configs = []
@@ -35,6 +51,8 @@ def get_banned_configs(config):
             produced_configs.extend(get_cartesian_product_of_configs(
                 banned_configs["cartesian_product"]
             ))
+        elif "any_unequal" in banned_configs:
+            pass
         else:
             raise ValueError(f"Unexpected node in: {banned_configs}")
     return produced_configs
@@ -54,9 +72,10 @@ def exclude_banned_configs(configs, banned_configs):
 
 
 def parse_parameter_configs(config):
-    configs = get_cartesian_product_of_configs(config["parameter_configs"])
-    banned_configs = get_banned_configs(config)
-    return exclude_banned_configs(configs, banned_configs)
+    list_of_unequal_params = get_list_of_unequal_params(config)
+    parsed_configs = get_cartesian_product_of_configs(config["parameter_configs"], list_of_unequal_params)
+    banned_configs = get_banned_configs(config, parsed_configs)
+    return exclude_banned_configs(parsed_configs, banned_configs)
 
 
 def run_experiment(gin_configs, gin_bindings):
@@ -73,9 +92,11 @@ def run_parameter_search(gin_configs, gin_bindings, search_config):
         experiment_bindings = [
             f"{key} = '{value}'" if isinstance(value, str) and value[0] not in "@%" else f"{key} = {value}"
             for key, value in parameter_config.items()
+            if not key.startswith("_gin.config")
         ]
+        search_specific_configs = [value for key, value in parameter_config.items() if key.startswith("_gin.config")]
         run_experiment(
-            gin_configs,
+            gin_configs + search_specific_configs,
             gin_bindings=(gin_bindings + experiment_bindings),
         )
 

@@ -8,8 +8,15 @@ from datasets.raw_dataset import RawDataset
 
 @gin.configurable
 @dataclass
+class PhaseDatasetTemplate(object):
+    dataset_id: str
+    dataset_template: Type[RawDataset]
+
+
+@gin.configurable
+@dataclass
 class TrainingPhaseTemplate(object):
-    dataset_templates_probs: List[Tuple[Type[RawDataset], float]]
+    dataset_templates_probs: List[Tuple[PhaseDatasetTemplate, float]]
     steps: int
 
 

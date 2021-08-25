@@ -1,3 +1,4 @@
+from typing import List
 import tensorflow as tf
 import gin.tf
 
@@ -11,13 +12,25 @@ class PiecewiseLinearDecayScheduler(tf.keras.optimizers.schedules.LearningRateSc
         decay_steps: int = gin.REQUIRED,
         decay_rate: float = gin.REQUIRED,
         warmup_steps: float = gin.REQUIRED,
+        phases: List[float] = gin.REQUIRED,
     ):
         self.initial_learning_rate = initial_learning_rate
         self.decay_steps = decay_steps
         self.decay_rate = decay_rate
         self.warmup_steps = warmup_steps
+        self.phases = phases
 
-    def __call__(self, step):
+    def _get_current_phase_step(self, global_step):
+        if len(self.phases) == 0 or global_step < self.phases[0]:
+            return global_step
+        step = None
+        for index, phase in enumerate(self.phases):
+            if global_step - phase >= 0:
+                step = global_step - phase
+        return step
+
+    def __call__(self, global_step):
+        step = self._get_current_phase_step(global_step)
         if step < self.warmup_steps:
             return self.initial_learning_rate * (step + 1) / self.warmup_steps
         steps_since_warmup = step - self.warmup_steps

@@ -166,7 +166,7 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         raw_head_metrics, raw_tail_metrics = EvaluationMetrics(), EvaluationMetrics()
         head_metrics, tail_metrics = EvaluationMetrics(), EvaluationMetrics()
         for batched_samples in list_of_batched_samples:
-            losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()
+            losses_ranking = 1.0 - self.model(batched_samples, training=False).numpy()[:, :self.dataset.entities_count]
             for sample, ranking in zip(_unbatch_samples(batched_samples), losses_ranking):
                 filtered_ranking, target_index = self.existing_edges_filter.get_values_corresponding_to_existing_edges(
                     sample["edge_ids"], sample["mask_index"], values=ranking
