@@ -44,15 +44,16 @@ class TrainingDataset(object):
             self.dataset_probs = None
             return
         training_phase = self.training_phases[phase_index]
-        self.dataset_iterators = [next(iter(dataset.samples)) for dataset, _ in training_phase.datasets_probs]
-        self.dataset_probs = np.array([prob for _, prob in training_phase.datasets_probs])
+        self.dataset_iterators = [iter(dataset.samples) for dataset, _ in training_phase.datasets_probs]
+        unnormalised_probs = np.array([prob for _, prob in training_phase.datasets_probs])
+        self.dataset_probs = unnormalised_probs / np.sum(unnormalised_probs)
         
     @property
     def samples(self):
         while self.current_phase_index < len(self.training_phases):
             phase = self.training_phases[self.current_phase_index]
             dataset_index = np.random.choice(len(phase.datasets_probs), p=self.dataset_probs)
-            yield self.dataset_iterators[dataset_index]
+            yield next(self.dataset_iterators[dataset_index])
             self.current_phase_step += 1
             if self.current_phase_step >= phase.steps:
                 self.current_phase_index += 1

@@ -15,7 +15,7 @@ path_dataset/PhaseDatasetTemplate.dataset_id = "path_dataset"
 path_dataset/PhaseDatasetTemplate.dataset_template = @MaskedEntityOfPathDataset
 
 phase1/TrainingPhaseTemplate.dataset_templates_probs = [
-    (@path_dataset/PhaseDatasetTemplate(), 1.0)
+    (@edge_dataset/PhaseDatasetTemplate(), 0.5), (@path_dataset/PhaseDatasetTemplate(), 0.5)
 ]
 phase1/TrainingPhaseTemplate.steps = 80_000
 

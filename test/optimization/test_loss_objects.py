@@ -123,6 +123,13 @@ class TestLossObjects(tf.test.TestCase):
             atol=1e-3,
         )
 
+    def test_cross_entropy_invalid_label(self):
+        true_labels = np.array([1, 3], dtype=np.float32)
+        predictions = np.array([[0.1, 0.9, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
+        loss_object = CrossEntropyLossObject(label_smoothing=0.1)
+        with self.assertRaises(tf.errors.InvalidArgumentError):
+            loss_object.get_losses_of_samples(true_labels, predictions)
+
 
 if __name__ == '__main__':
     tf.test.main()

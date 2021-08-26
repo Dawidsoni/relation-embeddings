@@ -43,10 +43,19 @@
             "parameter_values": [512, 1024]
         },
         {
+            "parameter_name": "MaskedEntityOfPathDataset.share_relation_position",
+            "parameter_values": [false, true]
+        },
+        {
             "parameter_name": "_gin.config.phase_config",
             "parameter_values": [
+                "../phase_configs/edge_training.gin",
                 "../phase_configs/path_pretraining.gin",
-                "../phase_configs/multi_task_pretraining.gin"
+                "../phase_configs/relation_pretraining.gin",
+                "../phase_configs/edge_path_pretraining.gin",
+                "../phase_configs/edge_relation_pretraining.gin",
+                "../phase_configs/path_relation_pretraining.gin",
+                "../phase_configs/edge_path_relation_pretraining.gin"
             ]
         }
     ],

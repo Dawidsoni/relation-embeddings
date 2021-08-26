@@ -3,19 +3,29 @@
 MaskedEntityOfEdgeDataset.data_directory = "../data/FB15k-237"
 MaskedEntityOfEdgeDataset.batch_size = 512
 
+MaskedRelationOfEdgeDataset.data_directory = "../data/FB15k-237"
+MaskedRelationOfEdgeDataset.batch_size = 512
+
 MaskedEntityOfPathDataset.data_directory = "../data/FB15k-237"
 MaskedEntityOfPathDataset.batch_size = 512
+
+TransformerSoftmaxModelConfig.use_relations_outputs = True
 
 # Training Dataset
 
 edge_dataset/PhaseDatasetTemplate.dataset_id = "edge_dataset"
 edge_dataset/PhaseDatasetTemplate.dataset_template = @MaskedEntityOfEdgeDataset
 
+relation_dataset/PhaseDatasetTemplate.dataset_id = "relation_dataset"
+relation_dataset/PhaseDatasetTemplate.dataset_template = @MaskedRelationOfEdgeDataset
+
 path_dataset/PhaseDatasetTemplate.dataset_id = "path_dataset"
 path_dataset/PhaseDatasetTemplate.dataset_template = @MaskedEntityOfPathDataset
 
 phase1/TrainingPhaseTemplate.dataset_templates_probs = [
-    (@path_dataset/PhaseDatasetTemplate(), 1.0)
+    (@relation_dataset/PhaseDatasetTemplate(), 0.33),
+    (@path_dataset/PhaseDatasetTemplate(), 0.33),
+    (@edge_dataset/PhaseDatasetTemplate(), 0.33),
 ]
 phase1/TrainingPhaseTemplate.steps = 80_000
 

@@ -1,6 +1,8 @@
 import os
 import time
 import gin.tf
+import string
+import random
 
 import knowledge_base_state_factory
 import utils
@@ -83,7 +85,8 @@ def prepare_and_train_model(gin_configs, gin_bindings):
     utils.init_gin_configurables()
     gin.parse_config_files_and_bindings(gin_configs, gin_bindings)
     experiment_config = utils.ExperimentConfig()
-    experiment_id = f"{experiment_config.experiment_name}_{int(time.time())}"
+    random_id = "".join([random.choice(string.ascii_lowercase) for _ in range(4)])
+    experiment_id = f"{experiment_config.experiment_name}_{random_id}{int(time.time())}"
     logger = utils.init_or_get_logger(experiment_config.logs_output_folder, experiment_id)
     log_experiment_information(logger, experiment_config.experiment_name, gin_configs, gin_bindings)
     train_and_evaluate_model(experiment_config, experiment_id, logger)

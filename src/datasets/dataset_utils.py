@@ -1,5 +1,4 @@
 import collections
-import itertools
 import functools
 import enum
 import os

@@ -45,8 +45,9 @@ class MaskedEntityOfEdgeDataset(SoftmaxDataset):
 @gin.configurable
 class MaskedEntityOfPathDataset(SoftmaxDataset):
 
-    def __init__(self, max_samples=10_000_000, **kwargs):
+    def __init__(self, max_samples=10_000_000, share_relation_position=False, **kwargs):
         super(MaskedEntityOfPathDataset, self).__init__(**kwargs)
+        self.share_relation_position = share_relation_position
         self.max_samples = max_samples
 
     def _maybe_sample_edge(self, entity_id):
@@ -66,6 +67,11 @@ class MaskedEntityOfPathDataset(SoftmaxDataset):
                 ]
                 object_ids[mask_index] = dataset_utils.MASKED_ENTITY_TOKEN_ID
                 object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
+                positions = [0, 2, 3, 4]
+                if self.share_relation_position and mask_index == 0:
+                    positions = [0, 2, 1, 3]
+                elif self.share_relation_position and mask_index == 1:
+                    positions = [0, 2, 4, 1]
                 yield {
                     "edge_ids": [head_id, dataset_utils.MISSING_RELATION_TOKEN_ID, tail_id],
                     "object_ids": object_ids,
@@ -73,7 +79,7 @@ class MaskedEntityOfPathDataset(SoftmaxDataset):
                     "mask_index": mask_index,
                     "true_entity_index": 0 if mask_index == 1 else 1,
                     "expected_output": output_index,
-                    "positions": [0, 2, 3, 4],
+                    "positions": positions,
                 }
 
     def _generate_samples(self, max_samples_per_entity, mask_index):
