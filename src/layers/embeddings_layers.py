@@ -24,7 +24,7 @@ class EmbeddingsConfig(object):
     position_embeddings_max_inputs_length: int = 3
     use_fourier_series_in_position_embeddings: bool = False
     position_embeddings_trainable: bool = False
-    special_tokens_count: int = 5
+    special_tokens_count: int = 6
 
 
 class ObjectType(enum.Enum):

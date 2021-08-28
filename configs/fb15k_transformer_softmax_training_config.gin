@@ -1,3 +1,9 @@
+# Datasets
+
+RawDataset.data_directory = "../data/FB15k-237"
+RawDataset.batch_size = 512
+
+
 # LossObject
 
 create_knowledge_base_state.loss_type = %LossType.CROSS_ENTROPY

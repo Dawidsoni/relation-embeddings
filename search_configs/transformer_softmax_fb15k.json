@@ -1,6 +1,10 @@
 {
     "parameter_configs": [
         {
+            "parameter_name": "RawDataset.batch_size",
+            "parameter_values": [512, 1024, 4096]
+        },
+        {
             "parameter_name": "create_optimizer.weight_decay",
             "parameter_values": [0.0, 1e-7, 1e-6]
         },
@@ -35,6 +39,10 @@
             "parameter_values": [0.7, 0.75, 0.8, 0.85]
         },
         {
+            "parameter_name": "StackedTransformerEncodersLayer.layers_count",
+            "parameter_values": [6, 12]
+        },
+        {
             "parameter_name": "StackedTransformerEncodersLayer.attention_heads_count",
             "parameter_values": [4, 6, 8]
         },
@@ -49,23 +57,13 @@
         {
             "parameter_name": "_gin.config.phase_config",
             "parameter_values": [
-                "../phase_configs/edge_training.gin",
                 "../phase_configs/path_pretraining.gin",
-                "../phase_configs/relation_pretraining.gin",
                 "../phase_configs/edge_path_pretraining.gin",
-                "../phase_configs/edge_relation_pretraining.gin",
-                "../phase_configs/path_relation_pretraining.gin",
                 "../phase_configs/edge_path_relation_pretraining.gin"
             ]
         }
     ],
     "banned_parameter_configs": [
-        {
-            "any_unequal": [
-                "TransformerSoftmaxModelConfig.pre_dropout_rate",
-                "StackedTransformerEncodersLayer.dropout_rate"
-            ]
-        },
         {
             "any_unequal": [
                 "get_embeddings_initializer.stddev",

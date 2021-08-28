@@ -1,11 +1,3 @@
-# Dataset
-
-MaskedEntityOfEdgeDataset.data_directory = "../data/FB15k-237"
-MaskedEntityOfEdgeDataset.batch_size = 512
-
-MaskedEntityOfPathDataset.data_directory = "../data/FB15k-237"
-MaskedEntityOfPathDataset.batch_size = 512
-
 # Training Dataset
 
 edge_dataset/PhaseDatasetTemplate.dataset_id = "edge_dataset"

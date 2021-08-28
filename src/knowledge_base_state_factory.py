@@ -104,8 +104,8 @@ def _create_inference_dataset(
     sample_weights_loss_object=None,
 ):
     common_args = {
-        "dataset_type": dataset_type, "data_directory": gin.REQUIRED, "batch_size": batch_size,
-        "shuffle_dataset": shuffle_dataset, "prefetched_samples": prefetched_samples
+        "dataset_type": dataset_type, "batch_size": batch_size, "shuffle_dataset": shuffle_dataset,
+        "prefetched_samples": prefetched_samples
     }
     sampling_args = {
         "sample_weights_model": sample_weights_model, "sample_weights_loss_object": sample_weights_loss_object,
