@@ -117,3 +117,10 @@ def get_existing_graph_edges(data_directory):
 def iterator_of_samples_to_dataset(iterator, max_samples=None):
     samples = list(iterator) if max_samples is None else itertools.islice(iterator, max_samples)
     return tf.data.Dataset.from_tensor_slices(dict(map_list_of_dicts_to_dict(samples)))
+
+
+def combine_datasets(list_of_datasets):
+    combined_dataset = list_of_datasets[0]
+    for dataset in list_of_datasets[1:]:
+        combined_dataset = combined_dataset.concatenate(dataset)
+    return combined_dataset

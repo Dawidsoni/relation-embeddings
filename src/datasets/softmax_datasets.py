@@ -2,7 +2,6 @@ import abc
 import itertools
 from abc import ABCMeta, ABC
 import random
-import tensorflow as tf
 
 import numpy as np
 import gin.tf
@@ -145,12 +144,13 @@ class NeighboursDataset(SoftmaxDataset, ABC):
         self.mask_source_entity_pbty = mask_source_entity_pbty
         self.training_epochs_count = training_epochs_count
 
-    def _maybe_mask_source_entity(self, object_ids, true_entity_index):
+    def _maybe_mask_source_entity(self, object_ids, object_types, true_entity_index):
         if self.inference_mode:
-            return False
+            return
         if not np.random.choice(2, p=[1.0 - self.mask_source_entity_pbty, self.mask_source_entity_pbty]):
-            return False
+            return
         object_ids[true_entity_index] = dataset_utils.MISSING_SOURCE_ENTITY_ID
+        object_types[true_entity_index] = ObjectType.SPECIAL_TOKEN.value
 
     def _sample_neighbours(self, neighbours):
         if len(neighbours) <= self.max_neighbours_count:
@@ -167,13 +167,18 @@ class NeighboursDataset(SoftmaxDataset, ABC):
         object_ids[mask_index] = dataset_utils.MASKED_ENTITY_TOKEN_ID
         object_types = [ObjectType.ENTITY.value, ObjectType.RELATION.value, ObjectType.ENTITY.value]
         object_types[mask_index] = ObjectType.SPECIAL_TOKEN.value
-        for neighbours, missing_context in zip(list_of_neighbours_missing_contexts):
+        for neighbours, missing_context in list_of_neighbours_missing_contexts:
             if missing_context:
                 missing_ids = [dataset_utils.MISSING_CONTEXT_ENTITY_ID, dataset_utils.MISSING_CONTEXT_RELATION_ID]
-                missing_types = [ObjectType.SPECIAL_TOKEN, ObjectType.SPECIAL_TOKEN]
+                missing_types = [ObjectType.SPECIAL_TOKEN.value, ObjectType.SPECIAL_TOKEN.value]
                 object_ids.extend(missing_ids * self.max_neighbours_count)
                 object_types.extend(missing_types * self.max_neighbours_count)
                 continue
+            neighbours = neighbours.copy()
+            if mask_index == 0 and (head_id, relation_id) in neighbours:
+                neighbours.remove((head_id, relation_id))
+            elif mask_index == 2 and (tail_id, relation_id) in neighbours:
+                neighbours.remove((tail_id, relation_id))
             sampled_neighbours = self._sample_neighbours(neighbours)
             for sampled_neighbour in sampled_neighbours:
                 object_ids.extend(sampled_neighbour)
@@ -198,8 +203,7 @@ class NeighboursDataset(SoftmaxDataset, ABC):
             list_of_datasets.append(dataset_utils.iterator_of_samples_to_dataset(
                 self._generate_samples(mask_index=2))
             )
-        combined_dataset = tf.data.Dataset.range(len(list_of_datasets)).interleave(lambda x: list_of_datasets[x])
-        return self._get_processed_dataset(combined_dataset)
+        return self._get_processed_dataset(dataset_utils.combine_datasets(list_of_datasets))
 
 
 @gin.configurable
@@ -217,6 +221,7 @@ class InputNeighboursDataset(NeighboursDataset):
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts=[(neighbours, False)]
             )
+            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,
@@ -242,6 +247,7 @@ class OutputNeighboursDataset(NeighboursDataset):
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts=[(neighbours, False)]
             )
+            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,
@@ -260,8 +266,15 @@ class InputOutputNeighboursDataset(NeighboursDataset):
         self.mask_input_context_pbty = mask_input_context_pbty
         self.mask_output_context_pbty = mask_output_context_pbty
 
-    def _sample_bool(self, pbty):
-        return np.random.choice(2, p=[1.0 - pbty, pbty])
+    def _sample_input_context_masked(self):
+        if self.inference_mode:
+            return False
+        return np.random.choice(2, p=[1 - self.mask_input_context_pbty, self.mask_input_context_pbty])
+
+    def _sample_output_context_masked(self):
+        if self.inference_mode:
+            return False
+        return np.random.choice(2, p=[1 - self.mask_output_context_pbty, self.mask_output_context_pbty])
 
     def _generate_samples(self, mask_index):
         true_entity_index = 2 if mask_index == 0 else 0
@@ -277,12 +290,13 @@ class InputOutputNeighboursDataset(NeighboursDataset):
                 else self.known_entity_output_edges[head_id]
             )
             list_of_neighbours_missing_contexts = [
-                (input_neighbours, self._sample_bool(self.mask_input_context_pbty)),
-                (output_neighbours, self._sample_bool(self.mask_output_context_pbty)),
+                (input_neighbours, self._sample_input_context_masked()),
+                (output_neighbours, self._sample_output_context_masked()),
             ]
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts
             )
+            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,
