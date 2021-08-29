@@ -94,39 +94,23 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
     return type_mappings[model_type]()
 
 
+@gin.configurable(whitelist=["dataset_template"])
 def _create_inference_dataset(
-    dataset_type,
-    model_type: ModelType,
-    batch_size,
-    prefetched_samples,
-    shuffle_dataset=False,
-    sample_weights_model=None,
-    sample_weights_loss_object=None,
+    dataset_type, batch_size, prefetched_samples, shuffle_dataset, dataset_template=gin.REQUIRED
 ):
-    common_args = {
-        "dataset_type": dataset_type, "batch_size": batch_size, "shuffle_dataset": shuffle_dataset,
-        "prefetched_samples": prefetched_samples
-    }
-    sampling_args = {
-        "sample_weights_model": sample_weights_model, "sample_weights_loss_object": sample_weights_loss_object,
-        "neighbours_per_sample": gin.REQUIRED,
-    }
-    sampling_edge_dataset_initializer = functools.partial(SamplingEdgeDataset, **common_args, **sampling_args)
-    masked_entity_of_edge_dataset_initializer = functools.partial(MaskedEntityOfEdgeDataset, **common_args)
-    type_mappings = {
-        ModelType.TRANSE: lambda: sampling_edge_dataset_initializer(),
-        ModelType.STRANSE: lambda: sampling_edge_dataset_initializer(),
-        ModelType.CONVKB: lambda: sampling_edge_dataset_initializer(),
-        ModelType.CONVE: lambda: masked_entity_of_edge_dataset_initializer(),
-        ModelType.TRANSFORMER_SOFTMAX: lambda: masked_entity_of_edge_dataset_initializer(),
-    }
-    if model_type not in type_mappings:
-        raise ValueError(f"Invalid model type: {model_type}")
-    return type_mappings[model_type]()
+    return dataset_template(
+        dataset_type=dataset_type,
+        batch_size=batch_size,
+        shuffle_dataset=shuffle_dataset,
+        prefetched_samples=prefetched_samples,
+        inference_mode=True,
+    )
 
 
 def _resolve_training_template(template):
-    return template(dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10)
+    return template(
+        dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10, inference_mode=False
+    )
 
 
 @gin.configurable
@@ -171,7 +155,7 @@ def _create_model_evaluator(
     outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler
 ):
     dataset_initializer = functools.partial(
-        _create_inference_dataset, dataset_type=dataset_type, shuffle_dataset=True, model_type=model_type,
+        _create_inference_dataset, dataset_type=dataset_type, shuffle_dataset=True,
         prefetched_samples=prefetched_samples
     )
     sampling_evaluator_initializer = functools.partial(
@@ -204,14 +188,13 @@ def _create_model_evaluator(
 
 @gin.configurable(blacklist=["model_type"])
 def _create_embeddings_config(
-    model_type: ModelType,
     entity_embeddings_path=gin.REQUIRED,
     relation_embeddings_path=gin.REQUIRED,
     position_embeddings_path=gin.REQUIRED,
     special_token_embeddings_path=gin.REQUIRED,
 ):
     dataset = _create_inference_dataset(
-        DatasetType.TRAINING, model_type, batch_size=1, prefetched_samples=10
+        DatasetType.TRAINING, shuffle_dataset=False, batch_size=1, prefetched_samples=10
     )
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
@@ -242,7 +225,7 @@ def create_knowledge_base_state(
     model_type: ModelType = gin.REQUIRED,
     loss_type: LossType = gin.REQUIRED,
 ):
-    embeddings_config = _create_embeddings_config(model_type)
+    embeddings_config = _create_embeddings_config()
     learning_rate_scheduler = PiecewiseLinearDecayScheduler()
     loss_object = _create_loss_object(loss_type)
     model = _create_model(embeddings_config, model_type)

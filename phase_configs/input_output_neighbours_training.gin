@@ -1,0 +1,21 @@
+# Training Dataset
+
+input_output_neighbours/PhaseDatasetTemplate.dataset_id = "input_output_neighbours"
+input_output_neighbours/PhaseDatasetTemplate.dataset_template = @InputOutputNeighboursDataset
+
+phase1/TrainingPhaseTemplate.dataset_templates_probs = [
+    (@input_output_neighbours/PhaseDatasetTemplate(), 1.0)
+]
+phase1/TrainingPhaseTemplate.steps = 1_000_000
+
+_create_training_dataset.training_phase_templates = [@phase1/TrainingPhaseTemplate()]
+
+# Creating a learning rate schedule
+
+PiecewiseLinearDecayScheduler.phases = []
+ExperimentConfig.training_steps = 120_000
+
+
+# Inference dataset
+
+_create_inference_dataset.dataset_template = @InputOutputNeighboursDataset

@@ -135,22 +135,18 @@ class MaskedRelationOfEdgeDataset(SoftmaxDataset):
 class NeighboursDataset(SoftmaxDataset, ABC):
 
     def __init__(
-        self, inference_mode, max_neighbours_count=gin.REQUIRED, mask_source_entity_pbty=gin.REQUIRED,
+        self, max_neighbours_count=gin.REQUIRED, mask_source_entity_pbty=gin.REQUIRED,
         training_epochs_count=5, **kwargs
     ):
         super(NeighboursDataset, self).__init__(**kwargs)
-        self.inference_mode = inference_mode
         self.max_neighbours_count = max_neighbours_count
         self.mask_source_entity_pbty = mask_source_entity_pbty
         self.training_epochs_count = training_epochs_count
 
-    def _maybe_mask_source_entity(self, object_ids, object_types, true_entity_index):
+    def _sample_source_entity_masked(self):
         if self.inference_mode:
-            return
-        if not np.random.choice(2, p=[1.0 - self.mask_source_entity_pbty, self.mask_source_entity_pbty]):
-            return
-        object_ids[true_entity_index] = dataset_utils.MISSING_SOURCE_ENTITY_ID
-        object_types[true_entity_index] = ObjectType.SPECIAL_TOKEN.value
+            return False
+        return np.random.choice(2, p=[1 - self.mask_source_entity_pbty, self.mask_source_entity_pbty])
 
     def _sample_neighbours(self, neighbours):
         if len(neighbours) <= self.max_neighbours_count:
@@ -221,7 +217,9 @@ class InputNeighboursDataset(NeighboursDataset):
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts=[(neighbours, False)]
             )
-            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
+            if self._sample_source_entity_masked():
+                object_ids[true_entity_index] = dataset_utils.MISSING_SOURCE_ENTITY_ID
+                object_types[true_entity_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,
@@ -247,7 +245,9 @@ class OutputNeighboursDataset(NeighboursDataset):
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts=[(neighbours, False)]
             )
-            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
+            if self._sample_source_entity_masked():
+                object_ids[true_entity_index] = dataset_utils.MISSING_SOURCE_ENTITY_ID
+                object_types[true_entity_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,
@@ -276,6 +276,17 @@ class InputOutputNeighboursDataset(NeighboursDataset):
             return False
         return np.random.choice(2, p=[1 - self.mask_output_context_pbty, self.mask_output_context_pbty])
 
+    def _sample_contexts_masked(self):
+        contexts_masked = [
+            self._sample_input_context_masked(),
+            self._sample_output_context_masked(),
+            self._sample_source_entity_masked()
+        ]
+        if all(contexts_masked):
+            sampled_context = np.random.choice(3)
+            contexts_masked[sampled_context] = False
+        return contexts_masked
+
     def _generate_samples(self, mask_index):
         true_entity_index = 2 if mask_index == 0 else 0
         for head_id, relation_id, tail_id in self.graph_edges:
@@ -289,14 +300,16 @@ class InputOutputNeighboursDataset(NeighboursDataset):
                 self.known_entity_input_edges[tail_id] if mask_index == 0
                 else self.known_entity_output_edges[head_id]
             )
+            input_context_masked, output_context_masked, source_entity_masked = self._sample_contexts_masked()
             list_of_neighbours_missing_contexts = [
-                (input_neighbours, self._sample_input_context_masked()),
-                (output_neighbours, self._sample_output_context_masked()),
+                (input_neighbours, input_context_masked), (output_neighbours, output_context_masked)
             ]
             object_ids, object_types = self._generate_object_ids_and_types(
                 head_id, relation_id, tail_id, mask_index, list_of_neighbours_missing_contexts
             )
-            self._maybe_mask_source_entity(object_ids, object_types, true_entity_index)
+            if source_entity_masked:
+                object_ids[true_entity_index] = dataset_utils.MISSING_SOURCE_ENTITY_ID
+                object_types[true_entity_index] = ObjectType.SPECIAL_TOKEN.value
             yield {
                 "edge_ids": edge_ids,
                 "object_ids": object_ids,

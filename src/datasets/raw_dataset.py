@@ -11,11 +11,12 @@ class RawDataset(object):
 
     def __init__(
         self, dataset_type=gin.REQUIRED, data_directory=gin.REQUIRED, batch_size=gin.REQUIRED,
-        shuffle_dataset=False, prefetched_samples=10
+        inference_mode=gin.REQUIRED, shuffle_dataset=False, prefetched_samples=10
     ):
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
+        self.inference_mode = inference_mode
         self.shuffle_dataset = shuffle_dataset
         self.prefetched_samples = prefetched_samples
         entity_ids = dataset_utils.extract_entity_ids(data_directory)

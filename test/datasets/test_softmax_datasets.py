@@ -11,7 +11,8 @@ class TestSoftmaxDatasets(tf.test.TestCase):
 
     def test_masked_entity_of_edge_dataset(self):
         dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2,
+            inference_mode=False,
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
@@ -32,7 +33,7 @@ class TestSoftmaxDatasets(tf.test.TestCase):
         np.random.seed(10)
         dataset = MaskedEntityOfPathDataset(
             dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2,
-            max_samples=10
+            max_samples=10, inference_mode=False,
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
@@ -53,7 +54,8 @@ class TestSoftmaxDatasets(tf.test.TestCase):
 
     def test_masked_relation_of_edge_dataset(self):
         dataset = MaskedRelationOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2
+            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2,
+            inference_mode=False,
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
