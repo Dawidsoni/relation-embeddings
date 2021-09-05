@@ -42,7 +42,8 @@ class TestModelTrainers(tf.test.TestCase):
         transe_model = TranseModel(embeddings_config, model_config)
         model_trainer = SamplingModelTrainer(transe_model, loss_object, learning_rate_schedule)
         dataset = SamplingEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, batch_size=2
+            dataset_id="dataset1", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, batch_size=2
         )
         samples_iterator = iter(dataset.samples)
         model_trainer.train_step(training_samples=next(samples_iterator), training_step=1)
@@ -59,10 +60,8 @@ class TestModelTrainers(tf.test.TestCase):
     def test_sampling_trainer_multiple_negatives(self, unused_adam_mock, unused_gradient_tape_mock):
         np.random.seed(2)
         dataset = SamplingEdgeDataset(
-            dataset_type=DatasetType.TRAINING,
-            data_directory=self.DATASET_PATH,
-            batch_size=4,
-            negatives_per_positive=2,
+            dataset_id="dataset1", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, batch_size=4, negatives_per_positive=2,
         )
         get_losses_of_pairs_mock = MagicMock(side_effect=[tf.constant([2.0, 3.0]), tf.constant([1.0, 4.0])])
         get_regularization_loss_mock = MagicMock(side_effect=[5.0])
@@ -92,7 +91,8 @@ class TestModelTrainers(tf.test.TestCase):
 
     def test_softmax_model_trainer(self):
         dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=100
+            dataset_id="dataset1", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=100
         )
         embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=4, use_special_token_embeddings=True,

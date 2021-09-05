@@ -24,7 +24,8 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
             StackedTransformerEncodersLayer.encoder_layer_type = %TransformerEncoderLayerType.PRE_LAYER_NORM
         """)
         dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
+            dataset_id="dataset1", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
         )
         self.model_inputs = next(iter(dataset.samples))
         self.embeddings_config = EmbeddingsConfig(
@@ -38,21 +39,28 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
         model = TransformerSoftmaxModel(self.embeddings_config, self.default_model_config)
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 3), outputs.shape)
-        self.assertEqual(729, model.count_params())
+        self.assertEqual(735, model.count_params())
 
     def test_pre_normalization_disabled(self):
         model_config = dataclasses.replace(self.default_model_config, use_pre_normalization=False)
         model = TransformerSoftmaxModel(self.embeddings_config, model_config)
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 3), outputs.shape)
-        self.assertEqual(717, model.count_params())
+        self.assertEqual(723, model.count_params())
 
     def test_use_relations_outputs(self):
         model_config = dataclasses.replace(self.default_model_config, use_relations_outputs=True)
         model = TransformerSoftmaxModel(self.embeddings_config, model_config)
         outputs = model(self.model_inputs)
         self.assertAllEqual((5, 5), outputs.shape)
-        self.assertEqual(731, model.count_params())
+        self.assertEqual(737, model.count_params())
+
+    def test_do_not_use_projection_layer(self):
+        model_config = dataclasses.replace(self.default_model_config)
+        model = TransformerSoftmaxModel(self.embeddings_config, model_config)
+        outputs = model(self.model_inputs, use_projection_layer=False)
+        self.assertAllEqual((5, 6), outputs.shape)
+        self.assertEqual(735, model.count_params())
 
 
 if __name__ == '__main__':

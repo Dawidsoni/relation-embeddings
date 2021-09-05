@@ -8,10 +8,6 @@ from layers.embeddings_layers import EmbeddingsConfig, EmbeddingsExtractionLayer
 
 class KnowledgeCompletionModel(tf.keras.Model, ABC):
 
-    def __init__(self, embeddings_config: EmbeddingsConfig):
-        super(KnowledgeCompletionModel, self).__init__()
-        self.embeddings_layer = EmbeddingsExtractionLayer(embeddings_config)
-
     def get_trainable_variables_at_training_step(self, training_step):
         return self.trainable_variables
 
@@ -27,3 +23,10 @@ class KnowledgeCompletionModel(tf.keras.Model, ABC):
         if self.embeddings_layer.config.use_position_embeddings:
             position_embeddings = self.embeddings_layer.position_embeddings_layer.position_embeddings
             np.save(file=os.path.join(path, "position_embeddings"), arr=position_embeddings.numpy())
+
+
+class EmbeddingsBasedModel(KnowledgeCompletionModel, ABC):
+
+    def __init__(self, embeddings_config: EmbeddingsConfig):
+        super(EmbeddingsBasedModel, self).__init__()
+        self.embeddings_layer = EmbeddingsExtractionLayer(embeddings_config)

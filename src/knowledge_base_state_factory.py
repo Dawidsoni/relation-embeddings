@@ -1,14 +1,15 @@
 import logging
-from typing import List
+from typing import List, Type
 import os
 from dataclasses import dataclass
 from enum import Enum
 import functools
 
 from datasets.dataset_utils import DatasetType
+from datasets.raw_dataset import RawDataset
 from datasets.sampling_datasets import SamplingEdgeDataset
 from datasets.softmax_datasets import MaskedEntityOfEdgeDataset
-from datasets.training_datasets import TrainingDataset, TrainingPhase, TrainingPhaseTemplate, PhaseDatasetTemplate
+from datasets.training_datasets import TrainingDataset, TrainingPhase, TrainingPhaseTemplate
 from models.transformer_softmax_model import TransformerSoftmaxModel
 
 import numpy as np
@@ -17,7 +18,7 @@ import gin.tf
 from layers.embeddings_layers import EmbeddingsConfig
 from models.conve_model import ConvEModel
 from models.convkb_model import ConvKBModel
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 from models.s_transe_model import STranseModel
 from models.transe_model import TranseModel
 from optimization.learning_rate_schedulers import PiecewiseLinearDecayScheduler
@@ -29,8 +30,8 @@ from optimization.model_trainers import ModelTrainer, SamplingModelTrainer, Soft
 
 @dataclass
 class KnowledgeBaseState(object):
-    model: KnowledgeCompletionModel
-    best_model: KnowledgeCompletionModel
+    model: EmbeddingsBasedModel
+    best_model: EmbeddingsBasedModel
     training_dataset: TrainingDataset
     loss_object: LossObject
     model_trainer: ModelTrainer
@@ -44,12 +45,13 @@ class PhaseDatasetTemplateResolver(object):
     def __init__(self):
         self.ids_to_datasets = {}
 
-    def resolve_phase_dataset_template(self, template: PhaseDatasetTemplate):
-        if template.dataset_id not in self.ids_to_datasets:
-            self.ids_to_datasets[template.dataset_id] = template.dataset_template(
-                dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10
-            )
-        return self.ids_to_datasets[template.dataset_id]
+    def resolve_phase_dataset_template(self, template: Type[RawDataset]):
+        dataset = template(
+            dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10, inference_mode=False,
+        )
+        if dataset.dataset_id not in self.ids_to_datasets:
+            self.ids_to_datasets[dataset.dataset_id] = dataset
+        return self.ids_to_datasets[dataset.dataset_id]
 
 
 @gin.constants_from_enum
@@ -96,7 +98,7 @@ def _create_model(embeddings_config: EmbeddingsConfig, model_type: ModelType):
 
 @gin.configurable(whitelist=["dataset_template"])
 def _create_inference_dataset(
-    dataset_type, batch_size, prefetched_samples, shuffle_dataset, dataset_template=gin.REQUIRED
+    dataset_type, batch_size, prefetched_samples, shuffle_dataset, repeat_dataset, dataset_template=gin.REQUIRED
 ):
     return dataset_template(
         dataset_type=dataset_type,
@@ -104,12 +106,7 @@ def _create_inference_dataset(
         shuffle_dataset=shuffle_dataset,
         prefetched_samples=prefetched_samples,
         inference_mode=True,
-    )
-
-
-def _resolve_training_template(template):
-    return template(
-        dataset_type=DatasetType.TRAINING, shuffle_dataset=True, prefetched_samples=10, inference_mode=False
+        repeat_dataset=repeat_dataset,
     )
 
 
@@ -152,11 +149,12 @@ def _create_model_trainer(model_type, model, loss_object, learning_rate_schedule
 
 
 def _create_model_evaluator(
-    outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler
+    outputs_folder, dataset_type, prefetched_samples, model_type, model, loss_object, learning_rate_scheduler,
+    shuffle_dataset=True, repeat_dataset=True,
 ):
     dataset_initializer = functools.partial(
-        _create_inference_dataset, dataset_type=dataset_type, shuffle_dataset=True,
-        prefetched_samples=prefetched_samples
+        _create_inference_dataset, dataset_type=dataset_type, shuffle_dataset=shuffle_dataset,
+        prefetched_samples=prefetched_samples, repeat_dataset=repeat_dataset,
     )
     sampling_evaluator_initializer = functools.partial(
         SamplingModelEvaluator,
@@ -186,7 +184,7 @@ def _create_model_evaluator(
     return type_mappings[model_type]()
 
 
-@gin.configurable(blacklist=["model_type"])
+@gin.configurable
 def _create_embeddings_config(
     entity_embeddings_path=gin.REQUIRED,
     relation_embeddings_path=gin.REQUIRED,
@@ -194,7 +192,7 @@ def _create_embeddings_config(
     special_token_embeddings_path=gin.REQUIRED,
 ):
     dataset = _create_inference_dataset(
-        DatasetType.TRAINING, shuffle_dataset=False, batch_size=1, prefetched_samples=10
+        DatasetType.TRAINING, shuffle_dataset=False, batch_size=1, prefetched_samples=10, repeat_dataset=False
     )
     pretrained_entity_embeddings = (
         np.load(entity_embeddings_path) if entity_embeddings_path is not None else None
@@ -251,5 +249,6 @@ def create_knowledge_base_state(
         ),
         test_evaluator=init_eval(
             model=best_model, outputs_folder=path_func("test"), dataset_type=DatasetType.TEST, prefetched_samples=1,
+            shuffle_dataset=False, repeat_dataset=False,
         ),
     )

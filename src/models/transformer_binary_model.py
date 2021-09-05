@@ -4,11 +4,11 @@ import tensorflow as tf
 
 from layers.embeddings_layers import EmbeddingsConfig
 from layers.transformer_layers import StackedTransformerEncodersLayer
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 
 
 @gin.configurable(blacklist=['embeddings_config'])
-class TransformerBinaryModel(KnowledgeCompletionModel):
+class TransformerBinaryModel(EmbeddingsBasedModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig, use_only_edge_in_reduction_layer: bool = gin.REQUIRED):
         super().__init__(embeddings_config)

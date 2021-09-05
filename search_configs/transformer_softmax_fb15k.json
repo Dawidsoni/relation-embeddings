@@ -1,10 +1,6 @@
 {
     "parameter_configs": [
         {
-            "parameter_name": "RawDataset.batch_size",
-            "parameter_values": [512, 1024, 4096]
-        },
-        {
             "parameter_name": "create_optimizer.weight_decay",
             "parameter_values": [0.0, 1e-7, 1e-6]
         },
@@ -36,7 +32,7 @@
         },
         {
             "parameter_name": "CrossEntropyLossObject.label_smoothing",
-            "parameter_values": [0.7, 0.75, 0.8, 0.85]
+            "parameter_values": [0.65, 0.7, 0.75, 0.8, 0.85]
         },
         {
             "parameter_name": "StackedTransformerEncodersLayer.layers_count",
@@ -47,16 +43,20 @@
             "parameter_values": [4, 6, 8]
         },
         {
+            "parameter_name": "EmbeddingsConfig.embeddings_dimension",
+            "parameter_values": [256, 384]
+        },
+        {
+            "parameter_name": "StackedTransformerEncodersLayer.attention_head_dimension",
+            "parameter_values": [256, 384]
+        },
+        {
             "parameter_name": "StackedTransformerEncodersLayer.pointwise_hidden_layer_dimension",
             "parameter_values": [512, 1024]
         },
         {
-            "parameter_name": "MaskedEntityOfPathDataset.share_relation_position",
-            "parameter_values": [false, true]
-        },
-        {
             "parameter_name": "NeighboursDataset.max_neighbours_count",
-            "parameter_values": [3, 5, 10, 20]
+            "parameter_values": [3, 5, 7, 10]
         },
         {
             "parameter_name": "NeighboursDataset.mask_source_entity_pbty",
@@ -73,9 +73,7 @@
         {
             "parameter_name": "_gin.config.phase_config",
             "parameter_values": [
-                "../phase_configs/input_neighbours_training.gin",
-                "../phase_configs/output_neighbours_training.gin",
-                "../phase_configs/input_output_neighbours_training.gin"
+                "../phase_configs/output_neighbours_training.gin"
             ]
         }
     ],
@@ -85,6 +83,27 @@
                 "get_embeddings_initializer.stddev",
                 "get_parameters_initializer.stddev"
             ]
+        },
+        {
+            "any_unequal": [
+                "EmbeddingsConfig.embeddings_dimension",
+                "StackedTransformerEncodersLayer.attention_head_dimension"
+            ]
+        },
+        {
+            "cartesian_product": [
+                {
+                    "parameter_name": "_gin.config.phase_config",
+                    "parameter_values": ["../phase_configs/input_output_neighbours_training.gin"]
+                },
+                {
+                    "parameter_name": "NeighboursDataset.max_neighbours_count",
+                    "parameter_values": [7, 10]
+                }
+            ]
         }
+
+
+
     ]
 }

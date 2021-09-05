@@ -12,14 +12,16 @@ class TestDatasetUtils(tf.test.TestCase):
 
     def setUp(self):
         self.batch1_dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=1,
+            dataset_id="batch1_dataset", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=1,
         )
         self.batch2_dataset = MaskedEntityOfPathDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2,
-            max_samples=10
+            dataset_id="batch2_dataset", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=2, max_samples=10
         )
         self.batch3_dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=3
+            dataset_id="batch3_dataset", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=3
         )
 
     def test_deterministic_phases(self):

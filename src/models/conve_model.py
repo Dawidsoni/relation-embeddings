@@ -4,7 +4,7 @@ import tensorflow as tf
 import gin.tf
 
 from layers.embeddings_layers import EmbeddingsConfig
-from models.conv_base_model import KnowledgeCompletionModel
+from models.conv_base_model import EmbeddingsBasedModel
 
 
 @gin.configurable
@@ -19,7 +19,7 @@ class ConvEModelConfig(object):
 
 
 @gin.configurable(blacklist=['embeddings_config'])
-class ConvEModel(KnowledgeCompletionModel):
+class ConvEModel(EmbeddingsBasedModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig, model_config: ConvEModelConfig = gin.REQUIRED):
         super().__init__(embeddings_config)

@@ -23,8 +23,8 @@ class TestSamplingDatasets(tf.test.TestCase):
     def test_sampling_dataset(self):
         np.random.seed(2)
         dataset = SamplingEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False,
-            negatives_per_positive=2, batch_size=4,
+            dataset_id="dataset1", dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH,
+            shuffle_dataset=False, negatives_per_positive=2, batch_size=4, inference_mode=False,
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
@@ -51,9 +51,10 @@ class TestSamplingDatasets(tf.test.TestCase):
     def test_sampling_dataset_sample_weights_model(self):
         sample_weights_model_mock = MagicMock(return_value=tf.random.uniform(shape=(4, 3)))
         dataset = SamplingEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False,
-            negatives_per_positive=1, batch_size=4, sample_weights_model=sample_weights_model_mock,
-            sample_weights_loss_object=NormLossObject(order=1, margin=3.0), sample_weights_count=2
+            dataset_id="dataset1", dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH,
+            shuffle_dataset=False, negatives_per_positive=1, batch_size=4, sample_weights_count=2,
+            sample_weights_model=sample_weights_model_mock, inference_mode=False,
+            sample_weights_loss_object=NormLossObject(order=1, margin=3.0),
         )
         samples_iterator = iter(dataset.samples)
         batch1, batch2 = next(samples_iterator), next(samples_iterator)
@@ -67,8 +68,9 @@ class TestSamplingDatasets(tf.test.TestCase):
     def test_sampling_neighbours_dataset_two_neighbours(self):
         np.random.seed(2)
         dataset = SamplingNeighboursDataset(
-            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
-            negatives_per_positive=1, batch_size=3, neighbours_per_sample=2
+            dataset_id="dataset1", dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH,
+            shuffle_dataset=False, negatives_per_positive=1, batch_size=3, neighbours_per_sample=2,
+            inference_mode=False,
         )
         samples_batch = next(iter(dataset.samples))
         positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]
@@ -112,8 +114,9 @@ class TestSamplingDatasets(tf.test.TestCase):
     def test_sampling_neighbours_dataset_one_neighbour(self):
         np.random.seed(2)
         dataset = SamplingNeighboursDataset(
-            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False,
-            negatives_per_positive=1, batch_size=3, neighbours_per_sample=1
+            dataset_id="dataset1", dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH,
+            shuffle_dataset=False, negatives_per_positive=1, batch_size=3, neighbours_per_sample=1,
+            inference_mode=False,
         )
         samples_batch = next(iter(dataset.samples))
         positive_samples, negative_samples = samples_batch[0], samples_batch[1][0]

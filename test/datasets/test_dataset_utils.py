@@ -12,7 +12,8 @@ class TestDatasetUtils(tf.test.TestCase):
     def test_incremental_edges(self):
         np.random.seed(2)
         dataset = RawDataset(
-            dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=1
+            dataset_id="dataset1", dataset_type=DatasetType.VALIDATION, data_directory=self.DATASET_PATH,
+            shuffle_dataset=False, batch_size=1, inference_mode=False,
         )
         self.assertDictEqual(
             dataset.known_entity_output_edges, {0: [(1, 0)], 1: [(2, 1)]}

@@ -2,7 +2,7 @@ from abc import abstractmethod
 import tensorflow as tf
 import gin.tf
 
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 from optimization.loss_objects import SamplingLossObject, SupervisedLossObject
 from optimization import parameters_factory
 
@@ -21,7 +21,7 @@ class SamplingModelTrainer(ModelTrainer):
 
     def __init__(
         self,
-        model: KnowledgeCompletionModel,
+        model: EmbeddingsBasedModel,
         loss_object: SamplingLossObject,
         learning_rate_schedule: LearningRateSchedule,
         negatives_reducer=tf.reduce_max
@@ -51,7 +51,7 @@ class SoftmaxModelTrainer(ModelTrainer):
 
     def __init__(
         self,
-        model: KnowledgeCompletionModel,
+        model: EmbeddingsBasedModel,
         loss_object: SupervisedLossObject,
         learning_rate_schedule: LearningRateSchedule
     ):

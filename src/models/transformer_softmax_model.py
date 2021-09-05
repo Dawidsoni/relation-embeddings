@@ -5,7 +5,7 @@ import tensorflow as tf
 
 from layers.embeddings_layers import EmbeddingsConfig
 from layers.transformer_layers import StackedTransformerEncodersLayer
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 from optimization import parameters_factory
 
 
@@ -18,7 +18,7 @@ class TransformerSoftmaxModelConfig(object):
 
 
 @gin.configurable(blacklist=['embeddings_config'])
-class TransformerSoftmaxModel(KnowledgeCompletionModel):
+class TransformerSoftmaxModel(EmbeddingsBasedModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig, model_config: TransformerSoftmaxModelConfig = gin.REQUIRED):
         super().__init__(embeddings_config)
@@ -33,19 +33,19 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.projection_bias = tf.Variable(
-            initial_value=tf.zeros_initializer()(shape=(tf.shape(self._get_similarity_matrix())[0], )),
+            initial_value=tf.zeros_initializer()(shape=(tf.shape(self.get_similarity_matrix())[0], )),
             trainable=True,
         )
 
-    def _get_similarity_matrix(self):
+    def get_similarity_matrix(self):
         if self.model_config.use_relations_outputs:
             return tf.concat(
                 [self.embeddings_layer.entity_embeddings, self.embeddings_layer.relation_embeddings],
                 axis=0,
             )
-        return self.embeddings_layer.entity_embeddings
+        return self.post_normalization_layer(self.embeddings_layer.entity_embeddings)
 
-    def call(self, inputs, training=None, **kwargs):
+    def call(self, inputs, training=None, use_projection_layer=True, **kwargs):
         outputs = self.embeddings_layer(inputs, training=training)
         if self.model_config.use_pre_normalization:
             outputs = self.pre_normalization_layer(outputs, training=training)
@@ -54,7 +54,9 @@ class TransformerSoftmaxModel(KnowledgeCompletionModel):
         outputs = tf.gather(outputs, indices=inputs["mask_index"], axis=1, batch_dims=1)
         outputs = self.post_hidden_layer(outputs, training=training)
         outputs = self.post_normalization_layer(outputs, training=training)
-        outputs = tf.linalg.matmul(outputs, self._get_similarity_matrix(), transpose_b=True)
+        if not use_projection_layer:
+            return outputs
+        outputs = tf.linalg.matmul(outputs, self.get_similarity_matrix(), transpose_b=True)
         outputs += self.projection_bias
         return outputs
 

@@ -2,11 +2,11 @@ import dataclasses
 import gin.tf
 
 from layers.embeddings_layers import EmbeddingsConfig
-from models.conv_base_model import KnowledgeCompletionModel
+from models.conv_base_model import EmbeddingsBasedModel
 
 
 @gin.configurable(blacklist=['embeddings_config'])
-class TransformerConvEModel(KnowledgeCompletionModel):
+class TransformerConvEModel(EmbeddingsBasedModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig):
         super().__init__(embeddings_config)

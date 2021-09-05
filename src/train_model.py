@@ -3,6 +3,7 @@ import time
 import gin.tf
 import string
 import random
+import logging
 
 import knowledge_base_state_factory
 import utils
@@ -10,7 +11,7 @@ import utils
 
 class TrainingStopper(object):
 
-    def __init__(self, iterations_to_stop=7):
+    def __init__(self, iterations_to_stop=5):
         self.iterations_to_stop = iterations_to_stop
         self.best_value = float("-inf")
         self.iterations_since_best_value = -1
@@ -74,11 +75,12 @@ def train_and_evaluate_model(experiment_config, experiment_id, logger):
         training_step += 1
         if training_step >= experiment_config.training_steps:
             break
-    if training_stopper.best_value < 0.3:
-        return
+    logger.info("Finished training a model")
     state.test_evaluator.log_metrics(logger)
     path_to_save_model = os.path.join(experiment_config.model_save_folder, experiment_id)
     state.best_model.save_with_embeddings(path_to_save_model)
+    logger.info("Finished evaluating a model")
+    logging.shutdown()
 
 
 def prepare_and_train_model(gin_configs, gin_bindings):

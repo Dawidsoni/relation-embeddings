@@ -16,7 +16,7 @@ CrossEntropyLossObject.label_smoothing = 0.75
 EmbeddingsConfig.embeddings_dimension = 256
 EmbeddingsConfig.trainable_embeddings = True
 EmbeddingsConfig.use_position_embeddings = True
-EmbeddingsConfig.position_embeddings_max_inputs_length = 5
+EmbeddingsConfig.position_embeddings_max_inputs_length = 100
 EmbeddingsConfig.use_fourier_series_in_position_embeddings = False
 EmbeddingsConfig.position_embeddings_trainable = True
 
@@ -41,14 +41,6 @@ TransformerSoftmaxModelConfig.pre_dropout_rate = 0.1
 
 TransformerSoftmaxModel.model_config = @TransformerSoftmaxModelConfig()
 create_knowledge_base_state.model_type = %ModelType.TRANSFORMER_SOFTMAX
-
-
-# Creating a learning rate schedule
-
-PiecewiseLinearDecayScheduler.initial_learning_rate = 5e-4
-PiecewiseLinearDecayScheduler.decay_steps = 40_000
-PiecewiseLinearDecayScheduler.decay_rate = 1.0
-PiecewiseLinearDecayScheduler.warmup_steps = 8000
 
 
 # Training model

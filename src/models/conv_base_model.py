@@ -4,7 +4,7 @@ import gin.tf
 from dataclasses import dataclass
 
 from layers.embeddings_layers import EmbeddingsConfig
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 
 
 @gin.configurable
@@ -15,7 +15,7 @@ class ConvModelConfig(object):
     dropout_rate: float = 0.0
 
 
-class ConvBaseModel(KnowledgeCompletionModel):
+class ConvBaseModel(EmbeddingsBasedModel):
 
     def __init__(self, embeddings_config: EmbeddingsConfig, model_config: ConvModelConfig):
         super(ConvBaseModel, self).__init__(embeddings_config)

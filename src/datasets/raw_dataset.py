@@ -10,15 +10,17 @@ from datasets.dataset_utils import DatasetType
 class RawDataset(object):
 
     def __init__(
-        self, dataset_type=gin.REQUIRED, data_directory=gin.REQUIRED, batch_size=gin.REQUIRED,
-        inference_mode=gin.REQUIRED, shuffle_dataset=False, prefetched_samples=10
+        self, dataset_id=gin.REQUIRED, dataset_type=gin.REQUIRED, data_directory=gin.REQUIRED, batch_size=gin.REQUIRED,
+        inference_mode=gin.REQUIRED, shuffle_dataset=False, prefetched_samples=10, repeat_dataset=True
     ):
+        self.dataset_id = dataset_id
         self.dataset_type = dataset_type
         self.data_directory = data_directory
         self.batch_size = batch_size
         self.inference_mode = inference_mode
         self.shuffle_dataset = shuffle_dataset
         self.prefetched_samples = prefetched_samples
+        self.repeat_dataset = repeat_dataset
         entity_ids = dataset_utils.extract_entity_ids(data_directory)
         relation_ids = dataset_utils.extract_relation_ids(data_directory)
         self.ids_of_entities = list(entity_ids.values())
@@ -50,9 +52,10 @@ class RawDataset(object):
         return entity_input_edges
 
     def _get_processed_dataset(self, dataset):
-        dataset = dataset.shuffle(buffer_size=1000) if self.shuffle_dataset else dataset
-        dataset = dataset.repeat()
-        dataset = dataset.batch(self.batch_size, drop_remainder=True)
+        dataset = dataset.shuffle(buffer_size=10_000) if self.shuffle_dataset else dataset
+        if self.repeat_dataset:
+            dataset = dataset.repeat()
+        dataset = dataset.batch(self.batch_size, drop_remainder=False)
         return dataset.prefetch(self.prefetched_samples)
 
     @property

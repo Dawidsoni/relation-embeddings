@@ -2,6 +2,7 @@ import json
 import argparse
 import random
 import os
+import numpy as np
 
 
 def parse_training_args():
@@ -22,12 +23,18 @@ def get_list_of_unequal_params(config):
     return list_of_unequal_params
 
 
-def get_cartesian_product_of_configs(parameter_configs, list_of_unequal_params=()):
+def get_cartesian_product_of_configs(parameter_configs, list_of_unequal_params=(), max_sampled_params=None):
     produced_configs = [{}]
     for parameter_config in parameter_configs:
         configs_with_parameter = []
         parameter_name = parameter_config["parameter_name"]
-        for parameter_value in parameter_config["parameter_values"]:
+        parameter_values = parameter_config["parameter_values"]
+        if max_sampled_params is not None and len(parameter_values) > max_sampled_params:
+            parameter_values = [
+                parameter_values[index]
+                for index in np.random.choice(len(parameter_values), max_sampled_params, replace=False)
+            ]
+        for parameter_value in parameter_values:
             for produced_config in produced_configs:
                 copied_config = produced_config.copy()
                 copied_config[parameter_name] = parameter_value
@@ -73,7 +80,9 @@ def exclude_banned_configs(configs, banned_configs):
 
 def parse_parameter_configs(config):
     list_of_unequal_params = get_list_of_unequal_params(config)
-    parsed_configs = get_cartesian_product_of_configs(config["parameter_configs"], list_of_unequal_params)
+    parsed_configs = get_cartesian_product_of_configs(
+        config["parameter_configs"], list_of_unequal_params, max_sampled_params=2,
+    )
     banned_configs = get_banned_configs(config, parsed_configs)
     return exclude_banned_configs(parsed_configs, banned_configs)
 

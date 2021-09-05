@@ -11,7 +11,8 @@ class TestConvEModel(tf.test.TestCase):
 
     def setUp(self):
         dataset = MaskedEntityOfEdgeDataset(
-            dataset_type=DatasetType.TRAINING, data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
+            dataset_id="dataset1", inference_mode=False, dataset_type=DatasetType.TRAINING,
+            data_directory=self.DATASET_PATH, shuffle_dataset=False, batch_size=5
         )
         self.model_inputs = next(iter(dataset.samples))
         self.embeddings_config = EmbeddingsConfig(

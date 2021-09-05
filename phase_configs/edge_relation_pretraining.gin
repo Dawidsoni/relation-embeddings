@@ -5,18 +5,15 @@ TransformerSoftmaxModelConfig.use_relations_outputs = True
 
 # Training Dataset
 
-edge_dataset/PhaseDatasetTemplate.dataset_id = "edge_dataset"
-edge_dataset/PhaseDatasetTemplate.dataset_template = @MaskedEntityOfEdgeDataset
-
-relation_dataset/PhaseDatasetTemplate.dataset_id = "relation_dataset"
-relation_dataset/PhaseDatasetTemplate.dataset_template = @MaskedRelationOfEdgeDataset
+MaskedEntityOfEdgeDataset.dataset_id = "edge_dataset"
+MaskedRelationOfEdgeDataset.dataset_id = "relation_dataset"
 
 phase1/TrainingPhaseTemplate.dataset_templates_probs = [
-    (@edge_dataset/PhaseDatasetTemplate(), 0.5), (@relation_dataset/PhaseDatasetTemplate(), 0.5)
+    (@MaskedEntityOfEdgeDataset, 0.5), (@MaskedRelationOfEdgeDataset, 0.5)
 ]
 phase1/TrainingPhaseTemplate.steps = 80_000
 
-phase2/TrainingPhaseTemplate.dataset_templates_probs = [(@edge_dataset/PhaseDatasetTemplate(), 1.0)]
+phase2/TrainingPhaseTemplate.dataset_templates_probs = [(@MaskedEntityOfEdgeDataset, 1.0)]
 phase2/TrainingPhaseTemplate.steps = 1_000_000
 
 _create_training_dataset.training_phase_templates = [
@@ -24,6 +21,11 @@ _create_training_dataset.training_phase_templates = [
 ]
 
 # Creating a learning rate schedule
+
+PiecewiseLinearDecayScheduler.initial_learning_rate = 5e-4
+PiecewiseLinearDecayScheduler.decay_steps = 40_000
+PiecewiseLinearDecayScheduler.decay_rate = 1.0
+PiecewiseLinearDecayScheduler.warmup_steps = 8000
 
 PiecewiseLinearDecayScheduler.phases = [80_000]
 ExperimentConfig.training_steps = 160_000

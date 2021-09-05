@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import Optional, Union
 import tensorflow as tf
 
-from models.knowledge_completion_model import KnowledgeCompletionModel
+from models.knowledge_completion_model import EmbeddingsBasedModel
 from datasets import dataset_utils
 from datasets.raw_dataset import RawDataset
 from optimization.edges_producer import EdgesProducer
@@ -43,7 +43,7 @@ class ModelEvaluator(object):
 
     def __init__(
         self,
-        model: KnowledgeCompletionModel,
+        model: EmbeddingsBasedModel,
         loss_object: Union[SamplingLossObject, SupervisedLossObject],
         dataset: RawDataset,
         output_directory: str,
@@ -215,7 +215,6 @@ class SoftmaxModelEvaluator(ModelEvaluator):
         return metrics["metrics_averaged"].result()[1]
 
     def log_metrics(self, logger):
-        test_samples_count = 2 * len(self.dataset.graph_edges)
-        samples_iterator = self.dataset.samples.unbatch().batch(test_samples_count).as_numpy_iterator()
-        named_metrics = self._compute_metrics_on_samples(list_of_batched_samples=[next(samples_iterator)])
+        samples_iterator = self.dataset.samples.as_numpy_iterator()
+        named_metrics = self._compute_metrics_on_samples(list_of_batched_samples=samples_iterator)
         _log_dict_of_metrics(logger, named_metrics)

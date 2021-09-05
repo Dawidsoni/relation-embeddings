@@ -113,6 +113,14 @@ class TestLossObjects(tf.test.TestCase):
             1.020715, loss_object.get_mean_loss_of_samples(true_labels, predictions), atol=1e-3
         )
 
+    def test_cross_entropy_loss_multiple_losses(self):
+        true_labels = np.array([1, 2], dtype=np.float32)
+        predictions = np.array([[[0.1, 0.9, 0], [0.1, 0.8, 0.1]], [[0.1, 0.9, 0], [0.1, 0.8, 0.1]]], dtype=np.float32)
+        loss_object = CrossEntropyLossObject(label_smoothing=0.1)
+        self.assertAllClose(
+            2.04143, loss_object.get_mean_loss_of_samples(true_labels, predictions), atol=1e-3
+        )
+
     def test_cross_entropy_losses_of_samples(self):
         true_labels = np.array([1, 2], dtype=np.float32)
         predictions = np.array([[0.1, 0.9, 0], [0.1, 0.8, 0.1]], dtype=np.float32)
