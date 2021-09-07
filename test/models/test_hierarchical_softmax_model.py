@@ -42,17 +42,17 @@ class TestHierarchicalTransformerModel(tf.test.TestCase):
         joint_loss_dataset = CombinedMaskedDataset(
             dataset_templates=[template1, template2], dataset_type=DatasetType.TRAINING,
             data_directory=self.DATASET_PATH, shuffle_dataset=True, batch_size=4, inference_mode=False,
-            dataset_id="independent_losses_dataset", training_mode=CombinedMaskedDatasetTrainingMode.JOINT_LOSS,
+            dataset_id="joint_loss_dataset", training_mode=CombinedMaskedDatasetTrainingMode.JOINT_LOSS,
         )
         self.joint_loss_samples = next(iter(joint_loss_dataset.samples))
-        self.embeddings_config = EmbeddingsConfig(
+        embeddings_config = EmbeddingsConfig(
             entities_count=3, relations_count=2, embeddings_dimension=6, use_special_token_embeddings=True,
         )
         transformer_config = TransformerSoftmaxModelConfig(
             use_pre_normalization=True, pre_dropout_rate=0.5
         )
-        self.submodel1 = TransformerSoftmaxModel(self.embeddings_config, transformer_config)
-        self.submodel2 = TransformerSoftmaxModel(self.embeddings_config, transformer_config)
+        self.submodel1 = TransformerSoftmaxModel(embeddings_config, transformer_config)
+        self.submodel2 = TransformerSoftmaxModel(embeddings_config, transformer_config)
         self.default_model_config = HierarchicalTransformerModelConfig(dropout_rate=0.5, layers_count=2)
 
     def test_model_on_independent_losses_samples(self):

@@ -55,10 +55,10 @@ class TestTransformerSoftmaxModel(tf.test.TestCase):
         self.assertAllEqual((5, 5), outputs.shape)
         self.assertEqual(737, model.count_params())
 
-    def test_do_not_use_projection_layer(self):
+    def test_do_not_apply_projection_layer(self):
         model_config = dataclasses.replace(self.default_model_config)
         model = TransformerSoftmaxModel(self.embeddings_config, model_config)
-        outputs = model(self.model_inputs, use_projection_layer=False)
+        outputs = model(self.model_inputs, apply_projection_layer=False)
         self.assertAllEqual((5, 6), outputs.shape)
         self.assertEqual(735, model.count_params())
 

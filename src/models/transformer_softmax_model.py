@@ -28,7 +28,6 @@ class TransformerSoftmaxModel(EmbeddingsBasedModel):
         self.transformer_layer = StackedTransformerEncodersLayer()
         self.post_hidden_layer = tf.keras.layers.Dense(
             units=self.embeddings_layer.config.embeddings_dimension,
-            activation=parameters_factory.get_activation(),
             kernel_initializer=parameters_factory.get_parameters_initializer(),
         )
         self.post_normalization_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -43,9 +42,14 @@ class TransformerSoftmaxModel(EmbeddingsBasedModel):
                 [self.embeddings_layer.entity_embeddings, self.embeddings_layer.relation_embeddings],
                 axis=0,
             )
-        return self.post_normalization_layer(self.embeddings_layer.entity_embeddings)
+        return self.embeddings_layer.entity_embeddings
 
-    def call(self, inputs, training=None, use_projection_layer=True, **kwargs):
+    def projection_layer(self, inputs, training):
+        outputs = tf.linalg.matmul(inputs, self.get_similarity_matrix(), transpose_b=True)
+        outputs += self.projection_bias
+        return outputs
+
+    def call(self, inputs, training=None, apply_projection_layer=True, **kwargs):
         outputs = self.embeddings_layer(inputs, training=training)
         if self.model_config.use_pre_normalization:
             outputs = self.pre_normalization_layer(outputs, training=training)
@@ -53,12 +57,9 @@ class TransformerSoftmaxModel(EmbeddingsBasedModel):
         outputs = self.transformer_layer(outputs, training=training)
         outputs = tf.gather(outputs, indices=inputs["mask_index"], axis=1, batch_dims=1)
         outputs = self.post_hidden_layer(outputs, training=training)
-        outputs = self.post_normalization_layer(outputs, training=training)
-        if not use_projection_layer:
+        if not apply_projection_layer:
             return outputs
-        outputs = tf.linalg.matmul(outputs, self.get_similarity_matrix(), transpose_b=True)
-        outputs += self.projection_bias
-        return outputs
+        return self.projection_layer(outputs, training=training)
 
     def get_config(self):
         return {

@@ -6,7 +6,6 @@ import tensorflow as tf
 from datasets.softmax_datasets import CombinedMaskedDatasetTrainingMode
 from layers.transformer_layers import StackedTransformerEncodersLayer
 from models.knowledge_completion_model import KnowledgeCompletionModel
-from optimization import parameters_factory
 
 
 @gin.configurable
@@ -25,14 +24,8 @@ class HierarchicalTransformerModel(KnowledgeCompletionModel):
         self.config = config
         self._validate_submodels()
         self.embeddings_dimension = list(self.ids_to_models.values())[0].embeddings_layer.config.embeddings_dimension
-        self.entities_count = list(self.ids_to_models.values())[0].embeddings_layer.config.entities_count
         self.dropout_layer = tf.keras.layers.Dropout(rate=self.config.dropout_rate)
         self.transformer_layer = StackedTransformerEncodersLayer(layers_count=self.config.layers_count)
-        self.projection_layer = tf.keras.layers.Dense(
-            units=self.entities_count,
-            activation=parameters_factory.get_activation(),
-            kernel_initializer=parameters_factory.get_parameters_initializer(),
-        )
 
     def _validate_submodels(self):
         embeddings_dimension = None
@@ -54,21 +47,19 @@ class HierarchicalTransformerModel(KnowledgeCompletionModel):
     def _get_independent_losses_outputs(self, inputs):
         outputs = []
         for id_of_model, model in self.ids_to_models.items():
-            outputs.append(model(self._get_model_inputs(id_of_model, inputs), use_projection_layer=True))
+            outputs.append(model(self._get_model_inputs(id_of_model, inputs), apply_projection_layer=True))
         return tf.stack(outputs)
 
     def _project_with_submodels(self, list_of_inputs):
         list_of_outputs = []
         for model, inputs in zip(self.ids_to_models.values(), list_of_inputs):
-            outputs = tf.linalg.matmul(inputs, model.get_similarity_matrix(), transpose_b=True)
-            outputs += model.projection_bias
-            list_of_outputs.append(outputs)
+            list_of_outputs.append(model.projection_layer(inputs))
         return list_of_outputs
 
     def _get_joint_loss_outputs(self, inputs):
         outputs = []
         for id_of_model, model in self.ids_to_models.items():
-            outputs.append(model(self._get_model_inputs(id_of_model, inputs), use_projection_layer=False))
+            outputs.append(model(self._get_model_inputs(id_of_model, inputs), apply_projection_layer=False))
         outputs = tf.stack(outputs)
         outputs = tf.transpose(outputs, perm=[1, 0, 2])
         outputs = self.dropout_layer(outputs)

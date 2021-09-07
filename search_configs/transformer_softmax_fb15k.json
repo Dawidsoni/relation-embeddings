@@ -73,7 +73,7 @@
         {
             "parameter_name": "_gin.config.phase_config",
             "parameter_values": [
-                "../phase_configs/output_neighbours_training.gin"
+                "../phase_configs/edge_training.gin"
             ]
         }
     ],

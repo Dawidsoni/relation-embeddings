@@ -18,3 +18,7 @@ PiecewiseLinearDecayScheduler.warmup_steps = 8000
 
 PiecewiseLinearDecayScheduler.phases = []
 ExperimentConfig.training_steps = 80_000
+
+# Inference dataset
+
+_create_inference_dataset.dataset_template = @MaskedEntityOfEdgeDataset
